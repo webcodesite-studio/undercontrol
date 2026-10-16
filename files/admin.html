@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panel — opcje spodni</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap{max-width:720px;margin:0 auto;padding:24px 16px 80px;}
+  .login-box{max-width:360px;margin:15vh auto;padding:24px;background:var(--surface);border-radius:var(--radius);}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+  .dot{width:28px;height:28px;border-radius:50%;flex:0 0 auto;border:1px solid var(--border);}
+  .card .meta{flex:1;}
+  .card .meta input{background:transparent;border:none;color:var(--text);font-size:15px;width:100%;padding:0;margin:0;}
+  .card .meta input.price{font-size:12px;color:var(--muted);width:70px;}
+  .switch{width:42px;height:24px;background:var(--surface2);border-radius:12px;position:relative;flex:0 0 auto;border:1px solid var(--border);}
+  .switch.on{background:var(--accent);}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s;}
+  .switch.on::after{left:20px;background:#141400;}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tabs button{flex:1;padding:10px;border-radius:10px;background:var(--surface);color:var(--muted);border:1px solid var(--border);}
+  .tabs button.active{background:var(--surface2);color:var(--text);border-color:var(--accent);}
+  .add-btn{width:100%;padding:14px;border-radius:10px;background:var(--surface2);color:var(--text);margin-top:8px;border:1px dashed var(--border);}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+  .logout{color:var(--muted);font-size:13px;background:none;}
+</style>
+</head>
+<body>
+
+<div id="loginBox" class="login-box">
+  <h2>Logowanie</h2>
+  <input type="email" id="loginEmail" placeholder="Mail">
+  <input type="text" id="loginPass" placeholder="Hasło" style="-webkit-text-security:disc;">
+  <button class="btn btn-primary" style="width:100%" id="loginBtn">Zaloguj</button>
+  <p id="loginErr" style="color:#ff6b6b;font-size:13px;"></p>
+</div>
+
+<div id="panel" class="wrap" style="display:none;">
+  <div class="topbar">
+    <h2>Opcje spodni</h2>
+    <button class="logout" id="logoutBtn">Wyloguj</button>
+  </div>
+  <div class="tabs">
+    <button data-cat="kolor" class="active">Kolor</button>
+    <button data-cat="dziury">Dziury</button>
+    <button data-cat="kroj">Krój</button>
+  </div>
+  <div id="list"></div>
+  <button class="add-btn" id="addBtn">+ Dodaj opcję</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
