@@ -22,7 +22,21 @@ create policy "Authenticated write" on options
   for all using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
 
--- 5) Przykładowe dane startowe
+-- 5) Ustawienia strony (baner z ofertą + sekcja kontakt) — jeden wiersz
+create table site_settings (
+  id int primary key default 1,
+  offer_enabled boolean default true,
+  offer_text text default 'Wysyłka gratis przy zamówieniu do niedzieli!',
+  contact_text text default 'Masz pytania? Napisz do nas na Instagramie.',
+  constraint single_row check (id = 1)
+);
+alter table site_settings enable row level security;
+create policy "Public read settings" on site_settings for select using (true);
+create policy "Authenticated write settings" on site_settings for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+insert into site_settings (id) values (1);
+
+-- 6) Przykładowe dane startowe opcji
 insert into options (category,name,hex,price_extra,available,sort_order) values
 ('kolor','Czarny','#1a1a1a',0,true,1),
 ('kolor','Grafit','#4a4a4f',0,true,2),

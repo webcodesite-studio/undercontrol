@@ -44,9 +44,22 @@
     <button data-cat="kolor" class="active">Kolor</button>
     <button data-cat="dziury">Dziury</button>
     <button data-cat="kroj">Krój</button>
+    <button data-cat="ustawienia">Ustawienia</button>
   </div>
   <div id="list"></div>
   <button class="add-btn" id="addBtn">+ Dodaj opcję</button>
+
+  <div id="settingsPanel" style="display:none;">
+    <p class="cat-label">Baner z ofertą (góra strony)</p>
+    <div class="card" style="align-items:center;">
+      <div class="meta">Pokazuj baner</div>
+      <div class="switch" id="offerSwitch"></div>
+    </div>
+    <input type="text" id="offerTextInput" placeholder="Treść oferty, np. Wysyłka gratis do niedzieli!">
+    <p class="cat-label" style="margin-top:20px;">Sekcja kontakt (widoczna w podsumowaniu)</p>
+    <textarea id="contactTextInput" rows="4" style="width:100%;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;margin-bottom:12px;font-family:inherit;"></textarea>
+    <button class="btn btn-primary" style="width:100%;" id="saveSettingsBtn">Zapisz</button>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
