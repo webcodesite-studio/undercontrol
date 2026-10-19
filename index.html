@@ -9,6 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
+<div class="offer-bar" id="offerBar" style="display:none;">
+  <span id="offerText"></span>
+  <button id="offerClose" aria-label="Zamknij">✕</button>
+</div>
 <div class="app">
 
   <div class="preview">
@@ -59,6 +63,7 @@
       </div>
       <input type="email" id="emailInput" placeholder="Mail (opcjonalnie)">
       <input class="hp" type="text" id="hpField" tabindex="-1" autocomplete="off">
+      <div class="contact-block" id="contactBlock"></div>
     </section>
 
     <div class="done-screen" id="doneScreen" style="display:none;">

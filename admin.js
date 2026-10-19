@@ -21,9 +21,33 @@ document.getElementById("logoutBtn").onclick = async ()=>{ await sb.auth.signOut
 document.querySelectorAll(".tabs button").forEach(b=>{
   b.onclick=()=>{
     document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active"); currentCat = b.dataset.cat; renderList();
+    b.classList.add("active"); currentCat = b.dataset.cat;
+    const isSettings = currentCat === "ustawienia";
+    document.getElementById("list").style.display = isSettings ? "none" : "block";
+    document.getElementById("addBtn").style.display = isSettings ? "none" : "block";
+    document.getElementById("settingsPanel").style.display = isSettings ? "block" : "none";
+    if(isSettings) loadSettings(); else renderList();
   };
 });
+
+async function loadSettings(){
+  const { data, error } = await sb.from("site_settings").select("*").eq("id",1).single();
+  if(error){ alert("Błąd pobierania ustawień: "+error.message); return; }
+  document.getElementById("offerSwitch").classList.toggle("on", !!data.offer_enabled);
+  document.getElementById("offerTextInput").value = data.offer_text || "";
+  document.getElementById("contactTextInput").value = data.contact_text || "";
+}
+document.getElementById("offerSwitch").onclick = (e)=> e.target.classList.toggle("on");
+document.getElementById("saveSettingsBtn").onclick = async ()=>{
+  const patch = {
+    offer_enabled: document.getElementById("offerSwitch").classList.contains("on"),
+    offer_text: document.getElementById("offerTextInput").value.trim(),
+    contact_text: document.getElementById("contactTextInput").value.trim(),
+  };
+  const { error } = await sb.from("site_settings").update(patch).eq("id",1);
+  if(error) alert("Błąd zapisu: "+error.message);
+  else alert("Zapisano");
+};
 
 async function loadRows(){
   const { data, error } = await sb.from("options").select("*").order("category").order("sort_order",{ascending:true, nullsFirst:true});
