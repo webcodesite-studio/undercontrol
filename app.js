@@ -22,6 +22,11 @@ const FALLBACK = {
 const SIZES = ["XS","S","M","L","XL","XXL"];
 
 let OPTIONS = null;
+const FALLBACK_SETTINGS = {
+  offer_enabled: true,
+  offer_text: "Wysyłka gratis przy zamówieniu do niedzieli!",
+  contact_text: "Masz pytania? Napisz do nas na Instagramie."
+};
 let SETTINGS = { offer_enabled:false, offer_text:"", contact_text:"" };
 let state = { step:0, kolor:null, dziury:null, kroj:null, rozmiar:null };
 const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -45,7 +50,10 @@ async function loadSettings(){
     const { data, error } = await sbClient.from("site_settings").select("*").eq("id",1).single();
     if(error || !data) throw error || new Error("empty");
     SETTINGS = data;
-  }catch(e){ console.warn("Brak ustawień strony, pomijam baner/kontakt", e); }
+  }catch(e){
+    console.warn("Supabase niedostępny, używam domyślnego banera/kontaktu", e);
+    SETTINGS = FALLBACK_SETTINGS;
+  }
 
   const bar = document.getElementById("offerBar");
   if(SETTINGS.offer_enabled && SETTINGS.offer_text){
@@ -98,7 +106,10 @@ function render(){
     sb.appendChild(b);
   });
 
-  document.getElementById("igLink").href = `https://ig.me/m/${IG_NICK}`;
+  document.getElementById("igLink").href = `https://ig.me/m/${window.SELLER_IG || IG_NICK}`;
+  document.addEventListener("siteSettingsReady", ()=>{
+    document.getElementById("igLink").href = `https://ig.me/m/${window.SELLER_IG}`;
+  });
   showStep(0);
   updateBar();
 }
@@ -169,11 +180,18 @@ document.getElementById("nextBtn").onclick=()=>{
   submitOrder();
 };
 
+function validIG(nick){ return /^@?[a-zA-Z0-9](?:[a-zA-Z0-9._]{0,28}[a-zA-Z0-9])?$/.test(nick); }
+
 async function submitOrder(){
   if(document.getElementById("hpField").value){ return; } // honeypot — bot złapany, nic nie rób
   const ig = document.getElementById("igInput").value.trim();
   const mail = document.getElementById("emailInput").value.trim();
-  if(!ig){ document.getElementById("igInput").focus(); return; }
+  if(!ig || !validIG(ig)){
+    document.getElementById("igInput").focus();
+    document.getElementById("igInput").style.borderColor = "#ff6b6b";
+    return;
+  }
+  document.getElementById("igInput").style.borderColor = "";
   const total = (state.kolor?.price_extra||0)+(state.dziury?.price_extra||0)+(state.kroj?.price_extra||0);
   const payload = {
     kolor: state.kolor?.name, dziury: state.dziury?.name, kroj: state.kroj?.name,

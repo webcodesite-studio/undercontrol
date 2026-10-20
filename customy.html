@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Customy — konfigurator spodni</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="container nav-container">
+  <div class="logo"><a href="index.html" id="shopName">TWOJA MARKA</a></div>
+  <button class="menu-toggle" id="mobile-menu" aria-label="Otwórz menu"><span></span><span></span><span></span></button>
+  <nav>
+    <ul class="nav-links" id="nav-list">
+      <li><a href="index.html">Strona główna</a></li>
+      <li><a href="customy.html" class="active">Customy</a></li>
+      <li><a href="polityka.html">Polityka prywatności</a></li>
+      <li><a href="kontakt.html">Kontakt</a></li>
+    </ul>
+  </nav>
+</div>
+<div class="offer-bar" id="offerBar" style="display:none;">
+  <span id="offerText"></span>
+  <button id="offerClose" aria-label="Zamknij">✕</button>
+</div>
+<div class="app">
+
+  <div class="preview">
+    <div class="preview-box">
+      <svg id="pantsSvg" viewBox="0 0 200 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path id="pantsFill" d="M60 20 L140 20 L148 240 L112 240 L104 120 L96 120 L88 240 L52 240 Z"
+          fill="#555" stroke="#2c2c30" stroke-width="2"/>
+        <g id="holesLayer"></g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="options">
+    <div class="steps">
+      <div class="step-dot" data-dot="0"></div>
+      <div class="step-dot" data-dot="1"></div>
+      <div class="step-dot" data-dot="2"></div>
+      <div class="step-dot" data-dot="3"></div>
+    </div>
+
+    <section class="step" data-step="0">
+      <h2>Kolor</h2>
+      <p class="cat-label">Wybierz kolor spodni</p>
+      <div class="swatches" id="colorSwatches"></div>
+    </section>
+
+    <section class="step" data-step="1">
+      <h2>Dziury</h2>
+      <p class="cat-label">Styl przetarć</p>
+      <div class="tiles" id="holesTiles"></div>
+    </section>
+
+    <section class="step" data-step="2">
+      <h2>Krój i rozmiar</h2>
+      <p class="cat-label">Krój</p>
+      <div class="tiles" id="fitTiles" style="margin-bottom:24px;"></div>
+      <p class="cat-label">Rozmiar</p>
+      <div class="sizes" id="sizeBtns"></div>
+    </section>
+
+    <section class="step" data-step="3">
+      <h2>Podsumowanie</h2>
+      <div class="summary-list" id="summaryList"></div>
+      <p class="cat-label">Kontakt</p>
+      <div class="ig-row">
+        <input type="text" id="igInput" placeholder="Twój nick na IG (@nick)">
+        <a class="ig-btn" id="igLink" href="#" target="_blank" rel="noopener">IG</a>
+      </div>
+      <input type="email" id="emailInput" placeholder="Mail (opcjonalnie)">
+      <input class="hp" type="text" id="hpField" tabindex="-1" autocomplete="off">
+      <div class="contact-block" id="contactBlock"></div>
+    </section>
+
+    <div class="done-screen" id="doneScreen" style="display:none;">
+      <div class="big">✓</div>
+      <h2>Dzięki!</h2>
+      <p>Odezwiemy się na IG.</p>
+    </div>
+  </div>
+
+  <div class="bottombar" id="bottombar">
+    <div class="price" id="priceTag">0 zł</div>
+    <div class="nav">
+      <button class="btn btn-ghost" id="backBtn">Wstecz</button>
+      <button class="btn btn-primary" id="nextBtn">Dalej</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="nav.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

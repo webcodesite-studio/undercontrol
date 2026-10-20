@@ -17,7 +17,28 @@
   .switch.on{background:var(--accent);}
   .switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s;}
   .switch.on::after{left:20px;background:#141400;}
-  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .tabs button{flex:1 1 auto;min-width:80px;}
+  .campaign-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+  .campaign-card .crow{display:flex;gap:8px;margin-bottom:8px;}
+  .campaign-card input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px;width:100%;}
+  .campaign-status{font-size:11px;padding:3px 8px;border-radius:6px;display:inline-block;margin-bottom:8px;}
+  .status-active{background:var(--accent);color:#141400;}
+  .status-planned{background:var(--surface2);color:var(--muted);}
+  .status-ended{background:var(--surface2);color:#555;}
+  .del-btn{background:none;color:#ff6b6b;font-size:12px;margin-top:4px;}
+  .edit-btn{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;flex:0 0 auto;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end;justify-content:center;}
+  .modal-box{background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;}
+  @media(min-width:640px){.modal-overlay{align-items:center;}.modal-box{border-radius:16px;}}
+  .modal-box label{font-size:12px;color:var(--muted);display:block;margin:12px 0 4px;}
+  .modal-box input[type=text],.modal-box input[type=number],.modal-box input[type=date],.modal-box textarea{
+    width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;}
+  .color-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .color-row input[type=color]{width:42px;height:38px;border:none;border-radius:8px;background:none;padding:0;}
+  .color-row button{background:none;color:#ff6b6b;font-size:18px;padding:4px 10px;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+  .modal-actions .btn{padding:12px;}
   .tabs button{flex:1;padding:10px;border-radius:10px;background:var(--surface);color:var(--muted);border:1px solid var(--border);}
   .tabs button.active{background:var(--surface2);color:var(--text);border-color:var(--accent);}
   .add-btn{width:100%;padding:14px;border-radius:10px;background:var(--surface2);color:var(--text);margin-top:8px;border:1px dashed var(--border);}
@@ -40,26 +61,69 @@
     <h2>Opcje spodni</h2>
     <button class="logout" id="logoutBtn">Wyloguj</button>
   </div>
+  <div id="devBadge" style="display:none;background:#4a3a00;color:#ffd166;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:16px;">
+    Tryb testowy (bez Supabase) — zmiany nie zapisują się do bazy.
+  </div>
   <div class="tabs">
-    <button data-cat="kolor" class="active">Kolor</button>
-    <button data-cat="dziury">Dziury</button>
-    <button data-cat="kroj">Krój</button>
+    <button data-cat="produkty" class="active">Stałe oferty</button>
+    <button data-cat="customy">Customy</button>
+    <button data-cat="kampanie">Kampanie</button>
+    <button data-cat="wyglad">Wygląd</button>
     <button data-cat="ustawienia">Ustawienia</button>
   </div>
-  <div id="list"></div>
-  <button class="add-btn" id="addBtn">+ Dodaj opcję</button>
+
+  <div id="customySubtabs" style="display:none;">
+    <div class="tabs" style="margin-bottom:12px;">
+      <button data-subcat="kolor" class="active">Kolor</button>
+      <button data-subcat="dziury">Dziury</button>
+      <button data-subcat="kroj">Krój</button>
+    </div>
+    <div id="list"></div>
+    <button class="add-btn" id="addBtn">+ Dodaj opcję</button>
+  </div>
 
   <div id="settingsPanel" style="display:none;">
-    <p class="cat-label">Baner z ofertą (góra strony)</p>
-    <div class="card" style="align-items:center;">
-      <div class="meta">Pokazuj baner</div>
-      <div class="switch" id="offerSwitch"></div>
-    </div>
-    <input type="text" id="offerTextInput" placeholder="Treść oferty, np. Wysyłka gratis do niedzieli!">
-    <p class="cat-label" style="margin-top:20px;">Sekcja kontakt (widoczna w podsumowaniu)</p>
-    <textarea id="contactTextInput" rows="4" style="width:100%;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;margin-bottom:12px;font-family:inherit;"></textarea>
+    <p class="cat-label">Nazwa sklepu (pasek nawigacji i stopka)</p>
+    <input type="text" id="shopNameInput" placeholder="Nazwa sklepu">
+    <p class="cat-label" style="margin-top:4px;">Nick sprzedawcy na Instagramie (bez @)</p>
+    <input type="text" id="sellerIgInput" placeholder="np. moj_sklep_ig">
+    <p id="sellerIgErr" style="color:#ff6b6b;font-size:12px;display:none;">Niepoprawny format nicku Instagram.</p>
+    <p class="cat-label" style="margin-top:16px;">Sekcja kontakt (widoczna w podsumowaniu / na stronie Kontakt)</p>
+    <textarea id="contactTextInput" rows="3" style="width:100%;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;margin-bottom:4px;font-family:inherit;"></textarea>
+    <p class="cat-label" style="margin-top:20px;">Polityka prywatności (Markdown)</p>
+    <textarea id="policyMdInput" rows="8" style="width:100%;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-family:monospace;margin-bottom:4px;" placeholder="# Polityka prywatności&#10;&#10;Treść w formacie Markdown..."></textarea>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Obsługiwane: # nagłówki, **pogrubienie**, listy z "- ", akapity.</p>
     <button class="btn btn-primary" style="width:100%;" id="saveSettingsBtn">Zapisz</button>
   </div>
+
+  <div id="productsPanel" style="display:block;">
+    <div id="productsList"></div>
+    <button class="add-btn" id="addProductBtn">+ Dodaj produkt</button>
+  </div>
+
+  <div id="campaignsPanel" style="display:none;">
+    <p class="cat-label">Baner domyślny (gdy żadna kampania nie jest aktywna)</p>
+    <div class="card" style="align-items:center;">
+      <div class="meta">Pokazuj baner domyślny</div>
+      <div class="switch" id="offerSwitch"></div>
+    </div>
+    <input type="text" id="offerTextInput" placeholder="Treść, np. Wysyłka gratis do niedzieli!" style="margin-bottom:4px;">
+    <button class="btn btn-primary" style="width:100%;margin-bottom:24px;" id="saveDefaultBannerBtn">Zapisz baner domyślny</button>
+
+    <p class="cat-label">Zaplanowane kampanie</p>
+    <div id="campaignsList"></div>
+    <button class="add-btn" id="addCampaignBtn">+ Zaplanuj kampanię</button>
+  </div>
+
+  <div id="wygladPanel" style="display:none;">
+    <p class="cat-label">Motyw kolorystyczny strony</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Zmiana dotyczy całej strony: tła, kart, akcentu i tekstu — widoczna od razu po zapisaniu.</p>
+    <button class="btn btn-primary" id="openThemeModalBtn">Wybierz motyw</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" style="display:none;">
+  <div class="modal-box" id="modalBox"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>

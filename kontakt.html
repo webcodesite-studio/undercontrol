@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kontakt</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="container nav-container">
+  <div class="logo"><a href="index.html" id="shopName">TWOJA MARKA</a></div>
+  <button class="menu-toggle" id="mobile-menu" aria-label="Otwórz menu"><span></span><span></span><span></span></button>
+  <nav>
+    <ul class="nav-links" id="nav-list">
+      <li><a href="index.html">Strona główna</a></li>
+      <li><a href="customy.html">Customy</a></li>
+      <li><a href="polityka.html">Polityka prywatności</a></li>
+      <li><a href="kontakt.html" class="active">Kontakt</a></li>
+    </ul>
+  </nav>
+</div>
+<div class="page-content">
+  <h1>Kontakt</h1>
+  <p id="contactText">Napisz do nas na Instagramie — odpowiadamy najszybciej tam.</p>
+  <a class="btn btn-primary" style="display:inline-block;padding:14px 28px;" id="igLinkPage" href="#" target="_blank" rel="noopener">Napisz na Instagramie</a>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="nav.js"></script>
+<script>
+document.getElementById("igLinkPage").href = `https://ig.me/m/${window.SELLER_IG || IG_NICK}`;
+document.addEventListener("siteSettingsReady", ()=>{
+  document.getElementById("igLinkPage").href = `https://ig.me/m/${window.SELLER_IG}`;
+});
+(async function(){
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data, error } = await sb.from("site_settings").select("contact_text").eq("id",1).single();
+    if(error || !data?.contact_text) throw error || new Error("empty");
+    document.getElementById("contactText").textContent = data.contact_text;
+  }catch(e){ /* zostaje domyślny tekst */ }
+})();
+</script>
+</body>
+</html>
