@@ -108,16 +108,22 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // ---- Upload zdjęć do R2 (przez Worker) ----
 async function uploadToR2(file){
   if(R2_UPLOAD_URL.includes("TWOJ-WORKER")){
-    alert("Upload zdjęć nie jest jeszcze skonfigurowany — uzupełnij R2_UPLOAD_URL i R2_UPLOAD_SECRET w config.js (instrukcja w r2-worker/README.md).");
+    alert("Upload zdjęć nie jest jeszcze skonfigurowany — uzupełnij R2_UPLOAD_URL w config.js (instrukcja w r2-worker/README.md).");
     return null;
   }
   try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session){ alert("Upload wymaga zalogowania przez Supabase (tryb testowy admin/admin nie obsługuje uploadu)."); return null; }
+    if(file.size > 5*1024*1024){ alert("Plik jest za duży (maks. 5 MB)."); return null; }
     const res = await fetch(R2_UPLOAD_URL, {
       method: "POST",
-      headers: { "Content-Type": file.type || "application/octet-stream", "X-Upload-Secret": R2_UPLOAD_SECRET, "X-File-Name": file.name },
+      headers: { "Content-Type": file.type || "application/octet-stream", "Authorization": "Bearer "+session.access_token },
       body: file,
     });
-    if(!res.ok) throw new Error("HTTP "+res.status);
+    if(!res.ok){
+      let detail = ""; try{ detail = (await res.json()).error || ""; }catch(_){}
+      throw new Error("HTTP "+res.status+(detail?" — "+detail:""));
+    }
     const data = await res.json();
     return data.url;
   }catch(e){ alert("Błąd uploadu: "+e.message); return null; }
