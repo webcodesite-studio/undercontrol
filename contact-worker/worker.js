@@ -1,15 +1,28 @@
-// Cloudflare Worker — odbiera wiadomość z formularza kontaktowego i wysyła ją na Discord przez webhook.
+// Cloudflare Worker — odbiera wiadomość z formularza w PANELU ADMINA i wysyła ją na Discord przez webhook.
+// Dostęp tylko z tokenem sesji Supabase admina (jak r2-worker): odwiedzający strony nie mogą z niego korzystać.
 // Adres webhooka jest TYLKO tutaj (sekret DISCORD_WEBHOOK_URL) — nigdy w kodzie strony.
 
 const LIMITS = { name: 60, contact: 120, message: 1000, minMessage: 10 };
 const RATE = { max: 3, windowSec: 600 };   // 3 wiadomości / 10 min / IP
-const MIN_FILL_MS = 3000;                  // człowiek nie wypełni formularza szybciej niż w 3 s
 const MAX_BODY = 8 * 1024;
 const memHits = new Map();                 // zapas, gdy nie ma KV (per instancja Workera)
 
 // Neutralizuje formatowanie Discorda i pingi (@everyone, <@id>, linki-embedy)
 const clean = s => String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
   .replace(/([\\*_`~|>])/g, "\\$1").replace(/@/g, "@\u200b").trim();
+
+async function getAdminUser(request, env) {
+  const m = (request.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i);
+  if (!m || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return null;
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${m[1]}`, apikey: env.SUPABASE_ANON_KEY },
+  });
+  if (!res.ok) return null;
+  const user = await res.json();
+  if (!user?.email) return null;
+  const allowed = (env.ADMIN_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  return allowed.includes(user.email.toLowerCase()) ? user : null;
+}
 
 async function rateLimited(env, ip) {
   const key = `rl:${ip}`;
@@ -34,7 +47,7 @@ export default {
     const cors = {
       "Vary": "Origin",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       ...(originOk ? { "Access-Control-Allow-Origin": origin } : {}),
     };
     const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
@@ -44,6 +57,7 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: originOk ? 204 : 403, headers: cors });
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     if (!originOk) return json({ error: "Forbidden origin" }, 403);
+    if (!(await getAdminUser(request, env))) return json({ error: "Unauthorized" }, 401);
     if (!env.DISCORD_WEBHOOK_URL) return json({ error: "Not configured" }, 500);
     if (!(request.headers.get("Content-Type") || "").includes("application/json")) return json({ error: "Expected JSON" }, 415);
 
@@ -51,13 +65,6 @@ export default {
     if (raw.length > MAX_BODY) return json({ error: "Request too large" }, 413);
     let body; try { body = JSON.parse(raw); } catch { return json({ error: "Invalid JSON" }, 400); }
     if (!body || typeof body !== "object") return json({ error: "Invalid body" }, 400);
-
-    // Pułapka na boty: pole ukryte przed ludźmi musi być puste; fałszywy sukces nic im nie mówi.
-    if (body.website) return json({ ok: true });
-    const filledIn = Date.now() - Number(body.t);
-    if (!Number.isFinite(filledIn) || filledIn < MIN_FILL_MS || filledIn > 24 * 3600 * 1000) {
-      return json({ error: "Wypełnienie formularza trwało zbyt krótko. Spróbuj ponownie." }, 400);
-    }
 
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const contact = typeof body.contact === "string" ? body.contact.trim() : "";

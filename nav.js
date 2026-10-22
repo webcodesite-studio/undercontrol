@@ -33,8 +33,6 @@ function buildFooter(shopName, sellerIg){
 window.SELLER_IG = typeof IG_NICK !== "undefined" ? IG_NICK : "twoj_nick";
 
 (async function loadSiteSettings(){
-  const shopTarget = document.getElementById("shopName");
-  const FALLBACK_NAME = "TWOJA MARKA";
   let settings = null;
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -43,10 +41,8 @@ window.SELLER_IG = typeof IG_NICK !== "undefined" ? IG_NICK : "twoj_nick";
     settings = data;
   }catch(e){ /* zostają wartości domyślne */ }
 
-  const shopName = settings?.shop_name || FALLBACK_NAME;
-  if(shopTarget) shopTarget.textContent = shopName;
-  // tytuł karty z nazwą sklepu (jednorazowo, bez dublowania)
-  if(!document.title.includes(shopName)) document.title = document.title + " — " + shopName;
+  const shopName = brandOf(settings);
+  applyBrand(shopName);
   if(settings?.seller_ig) window.SELLER_IG = settings.seller_ig;
   if(settings) applyTheme(settings);
   buildFooter(shopName, window.SELLER_IG);

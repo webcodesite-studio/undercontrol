@@ -19,7 +19,7 @@ const LOCAL_FALLBACK_OPTIONS = [
   {id:"l7",category:"kroj",name:"Straight",hex:null,price_extra:0,available:true,sort_order:2},
 ];
 const LOCAL_FALLBACK_SETTINGS = {
-  shop_name:"TWOJA MARKA", seller_ig:"twoj_nick", offer_enabled:true,
+  shop_name:DEFAULT_BRAND, seller_ig:"twoj_nick", offer_enabled:true,
   offer_text:"Wysyłka gratis do niedzieli!", contact_text:"Napisz do nas na Instagramie.",
   policy_md:"# Polityka prywatności\n\nDane z formularza wykorzystujemy wyłącznie do kontaktu w sprawie zamówienia.",
   theme_bg:"#111113", theme_surface:"#19191c", theme_text:"#f2f2f0", theme_accent:"#d4ff3f", theme_muted:"#8a8a8f", theme_border:"#2c2c30",
@@ -40,6 +40,7 @@ function showPanel(){
   document.getElementById("panel").style.display="block";
   document.getElementById("devBadge").style.display = localDevMode ? "block" : "none";
   loadProducts();
+  applyAdminBrand();
 }
 
 document.getElementById("loginBtn").onclick = async ()=>{
@@ -71,6 +72,8 @@ mainTabs.forEach(b=>{
     const isCampaigns = currentCat === "kampanie";
     const isCustomy = currentCat === "customy";
     const isSales = currentCat === "sprzedaz";
+    const isContact = currentCat === "kontakt";
+    document.getElementById("contactPanel").style.display = isContact ? "block" : "none";
     document.getElementById("salesPanel").style.display = isSales ? "block" : "none";
     document.getElementById("customySubtabs").style.display = isCustomy ? "block" : "none";
     document.getElementById("settingsPanel").style.display = isSettings ? "block" : "none";
@@ -639,6 +642,10 @@ function validIG(nick){ return /^@?[a-zA-Z0-9](?:[a-zA-Z0-9._]{0,28}[a-zA-Z0-9])
 async function fetchSettings(){
   return localDevMode ? localSettings() : (await sb.from("site_settings").select("*").eq("id",1).single()).data;
 }
+async function applyAdminBrand(){
+  try{ applyBrand(brandOf(await fetchSettings())); }catch(e){ applyBrand(DEFAULT_BRAND); }
+  document.title = "Panel — " + document.title.split(" — ").pop();
+}
 async function saveSettingsPatch(patch){
   if(localDevMode){ const merged = {...localSettings(), ...patch}; saveLocalSettings(merged); return true; }
   const { error } = await sb.from("site_settings").update(patch).eq("id",1);
@@ -692,12 +699,13 @@ document.getElementById("saveSettingsBtn").onclick = async ()=>{
     flash("settingsMsg","Cena dziury musi być liczbą od 0 do 10000 zł.","err"); document.getElementById("holePriceInput").focus(); return;
   }
   const ok = await saveSettingsPatch({
-    shop_name: document.getElementById("shopNameInput").value.trim() || "TWOJA MARKA",
+    shop_name: document.getElementById("shopNameInput").value.trim() || DEFAULT_BRAND,
     seller_ig: ig || "twoj_nick",
     contact_text: document.getElementById("contactTextInput").value.trim(),
     policy_md: document.getElementById("policyMdInput").value,
     hole_price: holePrice,
   });
+  if(ok) applyAdminBrand();
   if(ok) flash("settingsMsg","Zapisano ustawienia. Cena dziury ("+fmtPLN(holePrice)+") obowiązuje teraz w całym sklepie.","ok");
 };
 async function showHolePriceHint(){
@@ -886,3 +894,36 @@ document.getElementById("addHoleStyleBtn").onclick = async ()=>{
 };
 
 checkSession();
+
+// ---- Kontakt → Discord (tylko dla zalogowanego admina; webhook jest wyłącznie w Workerze) ----
+(function(){
+  const form = document.getElementById("contactForm"), msg = document.getElementById("cfMsg"), btn = document.getElementById("cfSend");
+  const $ = id => document.getElementById(id);
+  $("cfMessage").addEventListener("input", ()=>{ $("cfCount").textContent = $("cfMessage").value.length+" / 1000"; });
+  function show(text, ok){ msg.textContent = text; msg.className = "cf-msg " + (ok ? "ok" : "err"); }
+  form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const name = $("cfName").value.trim(), contact = $("cfContact").value.trim(), message = $("cfMessage").value.trim();
+    if(!name) return show("Podaj imię lub nick.", false);
+    if(!contact) return show("Podaj e-mail lub inny sposób kontaktu.", false);
+    if(/@/.test(contact) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) return show("Ten adres e-mail wygląda na niepoprawny.", false);
+    if(message.length < 10) return show("Wiadomość jest za krótka (min. 10 znaków).", false);
+    if(localDevMode || typeof CONTACT_API_URL === "undefined" || CONTACT_API_URL.includes("TWOJ-CONTACT-WORKER"))
+      return show("Formularz nie jest skonfigurowany (Worker kontaktowy / prawdziwe logowanie).", false);
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session) return show("Sesja wygasła — zaloguj się ponownie.", false);
+    btn.disabled = true; btn.textContent = "Wysyłanie..."; show("", true);
+    try{
+      const res = await fetch(CONTACT_API_URL, {
+        method:"POST", headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+session.access_token },
+        body: JSON.stringify({ name, contact, message }),
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error || "Nie udało się wysłać wiadomości.");
+      form.reset(); $("cfCount").textContent = "0 / 1000";
+      show("Wysłano na Discord.", true);
+    }catch(err){
+      show(err instanceof TypeError ? "Brak połączenia z serwerem." : err.message, false);
+    }finally{ btn.disabled = false; btn.textContent = "Wyślij na Discord"; }
+  });
+})();

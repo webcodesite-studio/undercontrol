@@ -3,6 +3,9 @@ main = "worker.js"
 compatibility_date = "2025-01-01"
 
 [vars]
+SUPABASE_URL = "https://TWOJ-PROJEKT.supabase.co"
+SUPABASE_ANON_KEY = "TWOJ_ANON_KEY"   # publiczny klucz
+ADMIN_EMAILS = "admin@twoja-domena.pl"    # tylko ci użytkownicy mogą wysyłać (po przecinku)
 ALLOWED_ORIGINS = "https://twoja-domena.pl"   # domena strony, po przecinku (do testów lokalnych dodaj http://localhost:8765)
 
 # Opcjonalnie (zalecane): limit wiadomości współdzielony między serwerami Cloudflare.

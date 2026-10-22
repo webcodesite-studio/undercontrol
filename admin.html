@@ -97,7 +97,7 @@
 
 <div id="panel" class="wrap" style="display:none;">
   <div class="topbar">
-    <h2>Panel sklepu</h2>
+    <h2><span data-brand>TWOJA MARKA</span> — panel</h2>
     <button class="logout" id="logoutBtn">Wyloguj</button>
   </div>
   <div id="devBadge" style="display:none;background:#4a3a00;color:#ffd166;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:16px;">
@@ -108,6 +108,7 @@
     <button data-cat="customy">Customy</button>
     <button data-cat="sprzedaz">Sprzedaż</button>
     <button data-cat="kampanie">Kampanie</button>
+    <button data-cat="kontakt">Kontakt</button>
     <button data-cat="ustawienia">Ustawienia</button>
   </div>
 
@@ -144,8 +145,23 @@
     </div>
   </div>
 
+  <div id="contactPanel" style="display:none;">
+    <p class="cat-label">Wiadomość do administratora (Discord — widoczne tylko w panelu)</p>
+    <form class="contact-form" id="contactForm" novalidate>
+      <label for="cfName">Imię lub nick</label>
+      <input type="text" id="cfName" maxlength="60" autocomplete="off" required>
+      <label for="cfContact">E-mail lub inny kontakt</label>
+      <input type="text" id="cfContact" maxlength="120" autocomplete="off" required>
+      <label for="cfMessage">Wiadomość</label>
+      <textarea id="cfMessage" rows="5" maxlength="1000" required></textarea>
+      <div class="cf-count" id="cfCount">0 / 1000</div>
+      <button type="submit" class="btn btn-primary" id="cfSend" style="width:100%;">Wyślij na Discord</button>
+      <div class="cf-msg" id="cfMsg" role="status" aria-live="polite"></div>
+    </form>
+  </div>
+
   <div id="settingsPanel" style="display:none;">
-    <p class="cat-label">Nazwa sklepu (pasek nawigacji i stopka)</p>
+    <p class="cat-label">Nazwa marki (jedno źródło: nawigacja, stopka, tytuły stron, panel, meta opisy)</p>
     <input type="text" id="shopNameInput" placeholder="Nazwa sklepu">
     <p class="cat-label" style="margin-top:4px;">Nick sprzedawcy na Instagramie (bez @)</p>
     <input type="text" id="sellerIgInput" placeholder="np. moj_sklep_ig">
