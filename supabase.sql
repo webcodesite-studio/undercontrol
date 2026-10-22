@@ -41,6 +41,7 @@ Nie udostępniamy ich podmiotom trzecim poza dostawcami usług niezbędnych do o
   theme_accent text default '#d4ff3f',
   theme_muted text default '#8a8a8f',
   theme_border text default '#2c2c30',
+  hole_price numeric not null default 15 check (hole_price >= 0), -- cena jednej dziury w Customach (zł), jedno źródło prawdy
   customy_base_image text, -- URL zdjęcia spodni (z R2) pod edytor dziur w Customach
   constraint single_row check (id = 1)
 );
@@ -141,6 +142,11 @@ create table sales (
   quantity int not null check (quantity > 0),
   unit_price numeric not null check (unit_price >= 0),
   sold_at date not null default current_date,
+  kind text not null default 'offer' check (kind in ('offer','custom')),
+  cut text,
+  hole_count int,
+  hole_price numeric,
+  custom_code text,
   created_at timestamptz default now()
 );
 alter table sales enable row level security;

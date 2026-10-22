@@ -213,3 +213,19 @@ input[type=text], input[type=email]{width:100%;padding:13px 14px;background:var(
   .options{width:56%;max-height:100vh;overflow-y:auto;padding:40px 48px 140px;}
   .bottombar{left:44%;}
 }
+
+/* kopiowanie kodu konfiguracji (Customy) */
+.copy-code-row{margin:28px 0 24px;text-align:center;}
+.copy-code-btn{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:10px 14px;min-height:40px;}
+.copy-code-btn:hover,.copy-code-btn:focus-visible{color:var(--text);}
+.copy-code-msg{display:block;font-size:12px;color:var(--accent);min-height:16px;}
+#copyCodeFallback{width:100%;margin-top:8px;font-family:monospace;font-size:12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;}
+
+/* formularz kontaktowy */
+.contact-form{max-width:520px;margin-top:36px;display:flex;flex-direction:column;gap:10px;}
+.contact-form h2{font-size:18px;margin:0 0 4px;}
+.contact-form label{font-size:12px;color:var(--muted);}
+.contact-form input,.contact-form textarea{width:100%;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;font-family:inherit;}
+.contact-form .cf-count{font-size:11px;color:var(--muted);text-align:right;}
+.contact-form .cf-msg{font-size:13px;min-height:18px;}
+.contact-form .cf-msg.err{color:#ff6b6b;} .contact-form .cf-msg.ok{color:var(--accent);}

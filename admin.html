@@ -61,6 +61,28 @@
   .stat-table td{padding:8px 4px;border-top:1px solid var(--border);}
   .stat-table th:not(:first-child),.stat-table td:not(:first-child){text-align:right;white-space:nowrap;}
   .mini-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;border:1px solid var(--border);}
+  .modal-box select,.add-form select,.card select{width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;}
+  .add-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-top:10px;}
+  .add-form label{font-size:12px;color:var(--muted);display:block;margin:12px 0 4px;}
+  .add-form input[type=text],.add-form input[type=number],.add-form input[type=date],.add-form textarea{width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;}
+  .add-form-title{font-size:14px;font-weight:500;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media(max-width:420px){.two-col{grid-template-columns:1fr;}}
+  .seg{display:flex;gap:6px;margin-bottom:6px;}
+  .seg button{flex:1;padding:10px;border-radius:8px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);font-size:13px;}
+  .seg button.active{color:var(--text);border-color:var(--accent);}
+  .hint-line{font-size:12px;color:var(--muted);margin:6px 0 10px;}
+  .inline-msg{font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:10px;}
+  .inline-msg.ok{background:#16301a;color:#9be3a4;border:1px solid #28542e;}
+  .inline-msg.err{background:#3a1515;color:#ff9a9a;border:1px solid #6b2525;}
+  .dot-color{width:32px;height:32px;padding:0;border:1px solid var(--border);border-radius:50%;background:none;cursor:pointer;flex:0 0 auto;}
+  .dot-color::-webkit-color-swatch-wrapper{padding:0;} .dot-color::-webkit-color-swatch{border:none;border-radius:50%;} .dot-color::-moz-color-swatch{border:none;border-radius:50%;}
+  .edit-btn.armed{background:#3a1515;border-color:#6b2525;}
+  .theme-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .theme-cards .theme-card{text-align:left;color:var(--text);font:inherit;min-width:0;margin-bottom:0;background:var(--surface);}
+  @media(max-width:480px){.theme-cards{grid-template-columns:1fr;}}
+  .decoded-summary{margin:10px 0;}
+  .decoded-summary .summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
   .logout{color:var(--muted);font-size:13px;background:none;}
 </style>
@@ -88,7 +110,6 @@
     <button data-cat="customy">Customy</button>
     <button data-cat="sprzedaz">Sprzedaż</button>
     <button data-cat="kampanie">Kampanie</button>
-    <button data-cat="wyglad">Wygląd</button>
     <button data-cat="dekoder">Dekoder</button>
     <button data-cat="ustawienia">Ustawienia</button>
   </div>
@@ -106,19 +127,29 @@
       <button data-subcat="kroj">Krój</button>
       <button data-subcat="style_dziur">Style dziur</button>
     </div>
+    <div class="inline-msg" id="customyMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <p class="hint-line" id="holePriceHint"></p>
     <div id="list"></div>
-    <button class="add-btn" id="addBtn">+ Dodaj opcję</button>
+    <div id="addOptionForm"></div>
 
     <div id="holeStylesPanel" style="display:none;">
       <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Zdjęcia przetarć/dziur, które klient wybiera w edytorze na stronie Customy. Każdy styl to osobne zdjęcie (np. wyciętej dziury na przezroczystym tle, PNG).</p>
       <div id="holeStylesList"></div>
-      <button class="add-btn" id="addHoleStyleBtn">+ Dodaj styl dziury</button>
+      <div class="add-form">
+        <div class="add-form-title">Dodaj styl dziury</div>
+        <label for="hsName">Nazwa</label><input type="text" id="hsName" maxlength="40" placeholder="np. Poszarpana duża">
+        <label>Zdjęcie (najlepiej PNG z przezroczystym tłem, sam wycięty otwór)</label>
+        <div id="hsImgPreview" style="margin:8px 0;"></div>
+        <input type="file" id="hsImgFile" accept="image/*" style="display:none;">
+        <button type="button" class="add-btn" id="hsImgBtn" style="padding:8px;margin-top:0;">Wgraj zdjęcie</button>
+        <button type="button" class="btn btn-primary" id="addHoleStyleBtn" style="width:100%;margin-top:12px;">Dodaj styl</button>
+      </div>
     </div>
   </div>
 
   <div id="decoderPanel" style="display:none;">
     <p class="cat-label">Dekoder projektu dziur</p>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Wklej kod z zamówienia (pole "dziury_kod" w mailu) — zobaczysz dokładnie gdzie klient ustawił dziury.</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Wklej kod konfiguracji z zamówienia (pole "kod_konfiguracji" w mailu) — zobaczysz kolor, krój, rozmiar, dziury i ceny. Starsze kody (tylko dziury) też działają.</p>
     <textarea id="decoderInput" rows="3" placeholder="Wklej kod tutaj..." style="width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:monospace;margin-bottom:10px;"></textarea>
     <button class="btn btn-primary" style="width:100%;margin-bottom:20px;" id="decodeBtn">Pokaż projekt</button>
     <div id="decoderResult"></div>
@@ -135,7 +166,15 @@
     <p class="cat-label" style="margin-top:20px;">Polityka prywatności (Markdown)</p>
     <textarea id="policyMdInput" rows="8" style="width:100%;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-family:monospace;margin-bottom:4px;" placeholder="# Polityka prywatności&#10;&#10;Treść w formacie Markdown..."></textarea>
     <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Obsługiwane: # nagłówki, **pogrubienie**, listy z "- ", akapity.</p>
-    <button class="btn btn-primary" style="width:100%;" id="saveSettingsBtn">Zapisz</button>
+    <p class="cat-label" style="margin-top:20px;">Cena jednej dziury w Customach (zł)</p>
+    <input type="number" id="holePriceInput" min="0" max="10000" step="1" inputmode="decimal">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Jedno ustawienie dla całej strony: generator, podgląd i cena końcowa, dekoder kodów oraz rejestr sprzedaży.</p>
+    <button class="btn btn-primary" style="width:100%;" id="saveSettingsBtn">Zapisz ustawienia</button>
+    <div class="inline-msg" id="settingsMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
+
+    <p class="cat-label" style="margin-top:28px;">Wygląd — motyw kolorystyczny</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Kliknij motyw, żeby go zastosować. Zmienia kolory na całej stronie (tło, karty, akcent, tekst) — razem z nazwą sklepu i nickiem Instagram powyżej.</p>
+    <div id="themeCards" class="theme-cards"></div>
   </div>
 
   <div id="productsPanel" style="display:block;">
@@ -145,11 +184,46 @@
   </div>
 
   <div id="salesPanel" style="display:none;">
-    <p class="cat-label">Podsumowanie sprzedaży stałych ofert</p>
+    <p class="cat-label">Podsumowanie sprzedaży</p>
     <div id="salesSummary" class="stats"></div>
-    <button class="add-btn" id="addSaleBtn" style="margin:0 0 20px;">+ Zarejestruj sprzedaż</button>
-    <p class="cat-label">Według produktu</p><div id="salesByProduct"></div>
-    <p class="cat-label" style="margin-top:20px;">Według rozmiaru i koloru</p><div id="salesByVariant"></div>
+
+    <p class="cat-label">Zarejestruj sprzedaż</p>
+    <div class="add-form" id="saleForm">
+      <div class="seg" id="saleModes">
+        <button type="button" data-mode="offer" class="active">Oferta stała</button>
+        <button type="button" data-mode="custom">Custom (kod)</button>
+      </div>
+      <div id="saleErr" class="form-err" role="alert" style="display:none;"></div>
+      <div id="saleOffer">
+        <label for="sProduct">Produkt (dostępne oferty)</label><select id="sProduct"></select>
+        <div class="two-col">
+          <div><label for="sSize">Rozmiar</label><select id="sSize"></select></div>
+          <div><label for="sColor">Kolor</label><select id="sColor"></select></div>
+        </div>
+      </div>
+      <div id="saleCustom" style="display:none;">
+        <label for="sCode">Kod konfiguracji z generatora Customów</label>
+        <textarea id="sCode" rows="3" placeholder="Wklej kod — dane uzupełnią się automatycznie" style="font-family:monospace;font-size:12px;"></textarea>
+        <div id="sCodeInfo" class="hint-line"></div>
+        <div class="two-col">
+          <div><label for="sCColor">Kolor</label><select id="sCColor"></select></div>
+          <div><label for="sCCut">Krój</label><select id="sCCut"></select></div>
+        </div>
+        <label for="sCSize">Rozmiar</label><select id="sCSize"></select>
+      </div>
+      <div class="two-col">
+        <div><label for="sQty">Liczba sztuk</label><input type="number" id="sQty" min="1" step="1" value="1" inputmode="numeric"></div>
+        <div><label for="sPrice">Cena za sztukę (zł)</label><input type="number" id="sPrice" min="0" step="0.01" inputmode="decimal"></div>
+      </div>
+      <label for="sDate">Data sprzedaży</label><input type="date" id="sDate">
+      <button type="button" class="btn btn-primary" id="saleSaveBtn" style="width:100%;margin-top:14px;">Zapisz sprzedaż</button>
+      <div class="inline-msg" id="saleMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
+    </div>
+
+    <p class="cat-label" style="margin-top:24px;">Według produktu</p><div id="salesByProduct"></div>
+    <p class="cat-label" style="margin-top:20px;">Według rozmiaru</p><div id="salesBySize"></div>
+    <p class="cat-label" style="margin-top:20px;">Według koloru</p><div id="salesByColor"></div>
+    <p class="cat-label" style="margin-top:20px;">Customy</p><div id="salesCustom"></div>
     <p class="cat-label" style="margin-top:20px;">Ostatnie wpisy</p><div id="salesRecent"></div>
   </div>
 
@@ -160,18 +234,14 @@
       <div class="switch" id="offerSwitch"></div>
     </div>
     <input type="text" id="offerTextInput" placeholder="Treść, np. Wysyłka gratis do niedzieli!" style="margin-bottom:4px;">
-    <button class="btn btn-primary" style="width:100%;margin-bottom:24px;" id="saveDefaultBannerBtn">Zapisz baner domyślny</button>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" id="saveDefaultBannerBtn">Zapisz baner domyślny</button>
+    <div class="inline-msg" id="bannerMsg" role="status" aria-live="polite" style="display:none;margin-bottom:16px;"></div>
 
     <p class="cat-label">Zaplanowane kampanie</p>
     <div id="campaignsList"></div>
     <button class="add-btn" id="addCampaignBtn">+ Zaplanuj kampanię</button>
   </div>
 
-  <div id="wygladPanel" style="display:none;">
-    <p class="cat-label">Motyw kolorystyczny strony</p>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Zmiana dotyczy całej strony: tła, kart, akcentu i tekstu — widoczna od razu po zapisaniu.</p>
-    <button class="btn btn-primary" id="openThemeModalBtn">Wybierz motyw</button>
-  </div>
 </div>
 
 <div class="modal-overlay" id="modalOverlay" style="display:none;">
@@ -180,6 +250,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="shared.js"></script>
 <script src="admin.js"></script>
 </body>
 </html>
