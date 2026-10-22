@@ -40,10 +40,17 @@ Otwórz `config.js` i wklej:
 - Dane z bazy wstawiane przez `textContent`/`escapeText`, nie `innerHTML`.
 - W formularzu jest ukryte pole-pułapka (honeypot) przeciw botom.
 
-## Tryb testowy panelu (bez Supabase)
-Dopóki w `config.js` zostaje placeholder `TWOJ-PROJEKT.supabase.co`, logowanie w `/admin.html` przyjmie login **admin** / hasło **admin** — dane trzymane są wtedy lokalnie w przeglądarce (localStorage), nic nie zapisuje się do żadnej bazy.
+## Tryb testowy (admin/admin) a produkcja
+| | Tryb testowy `admin` / `admin` | Prawdziwe logowanie Supabase |
+|---|---|---|
+| Kiedy działa | tylko gdy `config.js` ma placeholder `TWOJ-PROJEKT` **i** strona jest otwarta lokalnie (`localhost`, `127.0.0.1` lub plik) | gdy w `config.js` jest prawdziwy `SUPABASE_URL` |
+| Dane | tylko w `localStorage` Twojej przeglądarki, nic nie trafia do bazy | baza Supabase |
+| Dodawanie/edycja produktów | tak (lokalnie, do podglądu) | tak (zapis do bazy) |
+| Upload zdjęć do R2 | **nie** — brak tokenu Supabase, Worker odrzuci (401), a panel w ogóle nie wysyła żądania | **tak**, o ile e-mail jest w `ADMIN_EMAILS` Workera |
 
-**To wyłącza się samo** — jak tylko wpiszesz prawdziwy `SUPABASE_URL` w `config.js`, logowanie `admin/admin` przestanie działać i panel będzie wymagał prawdziwego konta z Supabase. Nie musisz nic usuwać ręcznie przed wdrożeniem na produkcję — wystarczy uzupełnić klucze.
+- Na opublikowanej domenie (np. `*.vercel.app`) `admin/admin` **nie zadziała** nawet przy placeholderze w configu.
+- Test lokalny: `python3 -m http.server 8765` w folderze projektu → `http://localhost:8765/admin.html`.
+- Produkcja: wpisz prawdziwe `SUPABASE_URL` i `SUPABASE_ANON_KEY` w `config.js`, utwórz konto admina w Supabase i wpisz jego e-mail w `ADMIN_EMAILS` w `r2-worker/wrangler.toml` (patrz `r2-worker/README.md`).
 
 ## Co dodać później
 - Zdjęcia/warstwy PNG zamiast SVG-placeholdera w `index.html` (`#pantsSvg`) — podmień na `<img>` z warstwami nakładanymi przez CSS, albo osobny SVG per kolor.
