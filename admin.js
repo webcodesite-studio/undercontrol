@@ -7,7 +7,16 @@ let rows = [];
 // przestanie działać i panel będzie wymagał prawdziwego konta.
 const SUPABASE_CONFIGURED = !SUPABASE_URL.includes("TWOJ-PROJEKT");
 // admin/admin działa tylko lokalnie (localhost / plik) — nigdy na opublikowanej domenie
-const IS_LOCAL_HOST = ["localhost","127.0.0.1","[::1]",""].includes(location.hostname);
+// TYMCZASOWO: obejście testowe dla GitHub Pages — usuń razem z banerem NOT SECURE, gdy skonfigurujesz Supabase.
+const TEMP_BYPASS_HOSTS = ["webcodesite-studio.github.io"];
+const IS_LOCAL_HOST = ["localhost","127.0.0.1","[::1]",""].includes(location.hostname) || TEMP_BYPASS_HOSTS.includes(location.hostname);
+const SHOW_NOT_SECURE = !SUPABASE_CONFIGURED && TEMP_BYPASS_HOSTS.includes(location.hostname);
+if(SHOW_NOT_SECURE){
+  const b = document.createElement("div");
+  b.textContent = "NOT SECURE — tymczasowe logowanie admin/admin. Skonfiguruj konto Supabase i poproś o usunięcie obejścia.";
+  b.style.cssText = "position:sticky;top:0;z-index:100;background:#b00020;color:#fff;font-weight:700;text-align:center;padding:10px 12px;font-size:14px;";
+  document.body.prepend(b);
+}
 let localDevMode = false;
 const LOCAL_FALLBACK_OPTIONS = [
   {id:"l1",category:"kolor",name:"Czarny",hex:"#1a1a1a",price_extra:0,available:true,sort_order:1},
