@@ -1,0 +1,14 @@
+name = "pants-contact"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://twoja-domena.pl"   # domena strony, po przecinku (do testów lokalnych dodaj http://localhost:8765)
+
+# Opcjonalnie (zalecane): limit wiadomości współdzielony między serwerami Cloudflare.
+#   wrangler kv namespace create RATE_KV   → wklej id poniżej i odkomentuj
+# [[kv_namespaces]]
+# binding = "RATE_KV"
+# id = "TU_ID_KV"
+
+# DISCORD_WEBHOOK_URL ustaw jako SEKRET (nie tutaj!):  wrangler secret put DISCORD_WEBHOOK_URL

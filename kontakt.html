@@ -27,11 +27,55 @@
   <h1>Kontakt</h1>
   <p id="contactText">Napisz do nas na Instagramie — odpowiadamy najszybciej tam.</p>
   <a class="btn btn-primary" style="display:inline-block;padding:14px 28px;" id="igLinkPage" href="#" target="_blank" rel="noopener">Napisz na Instagramie</a>
+
+  <form class="contact-form" id="contactForm" novalidate>
+    <h2>Napisz do administratora</h2>
+    <label for="cfName">Imię lub nick</label>
+    <input type="text" id="cfName" maxlength="60" autocomplete="name" required>
+    <label for="cfContact">E-mail lub inny kontakt (np. nick na IG)</label>
+    <input type="text" id="cfContact" maxlength="120" autocomplete="email" required>
+    <label for="cfMessage">Wiadomość</label>
+    <textarea id="cfMessage" rows="5" maxlength="1000" required></textarea>
+    <div class="cf-count" id="cfCount">0 / 1000</div>
+    <input class="hp" type="text" id="cfWebsite" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <button type="submit" class="btn btn-primary" id="cfSend" style="width:100%;">Wyślij wiadomość</button>
+    <div class="cf-msg" id="cfMsg" role="status" aria-live="polite"></div>
+  </form>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="nav.js"></script>
 <script>
+(function(){
+  const form = document.getElementById("contactForm"), msg = document.getElementById("cfMsg"), btn = document.getElementById("cfSend");
+  const loadedAt = Date.now();
+  const $ = id => document.getElementById(id);
+  $("cfMessage").addEventListener("input", ()=>{ $("cfCount").textContent = $("cfMessage").value.length+" / 1000"; });
+  function show(text, ok){ msg.textContent = text; msg.className = "cf-msg " + (ok ? "ok" : "err"); }
+  form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const name = $("cfName").value.trim(), contact = $("cfContact").value.trim(), message = $("cfMessage").value.trim();
+    if(!name) return show("Podaj imię lub nick.", false);
+    if(!contact) return show("Podaj e-mail lub inny sposób kontaktu.", false);
+    if(/@/.test(contact) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) return show("Ten adres e-mail wygląda na niepoprawny.", false);
+    if(message.length < 10) return show("Wiadomość jest za krótka (min. 10 znaków).", false);
+    if(typeof CONTACT_API_URL === "undefined" || CONTACT_API_URL.includes("TWOJ-CONTACT-WORKER"))
+      return show("Formularz nie jest jeszcze skonfigurowany. Napisz do nas na Instagramie.", false);
+    btn.disabled = true; btn.textContent = "Wysyłanie..."; show("", true);
+    try{
+      const res = await fetch(CONTACT_API_URL, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ name, contact, message, website: $("cfWebsite").value, t: loadedAt }),
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error || "Nie udało się wysłać wiadomości.");
+      form.reset(); $("cfCount").textContent = "0 / 1000";
+      show("Dziękujemy! Wiadomość została wysłana — odpowiemy najszybciej, jak się da.", true);
+    }catch(err){
+      show(err instanceof TypeError ? "Brak połączenia z serwerem. Spróbuj ponownie lub napisz na Instagramie." : err.message, false);
+    }finally{ btn.disabled = false; btn.textContent = "Wyślij wiadomość"; }
+  });
+})();
 document.getElementById("igLinkPage").href = `https://ig.me/m/${window.SELLER_IG || IG_NICK}`;
 document.addEventListener("siteSettingsReady", ()=>{
   document.getElementById("igLinkPage").href = `https://ig.me/m/${window.SELLER_IG}`;

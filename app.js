@@ -36,7 +36,7 @@ const FALLBACK_SETTINGS = {
   contact_text: "Masz pytania? Napisz do nas na Instagramie."
 };
 let SETTINGS = { offer_enabled:false, offer_text:"", contact_text:"" };
-const PRICE_PER_HOLE = 15;
+let HOLE_PRICE = DEFAULT_HOLE_PRICE; // ustawiane z site_settings.hole_price (Ustawienia w panelu)
 const MAX_HOLES = 6;
 let state = { step:0, kolor:null, kroj:null, rozmiar:null, holes:[] };
 let selectedHoleIdx = null;
@@ -66,6 +66,7 @@ async function loadSettings(){
     console.warn("Supabase niedostępny, używam domyślnego banera/kontaktu", e);
     SETTINGS = FALLBACK_SETTINGS;
   }
+  HOLE_PRICE = holePriceOf(SETTINGS);
 
   const bar = document.getElementById("offerBar");
   if(SETTINGS.offer_enabled && SETTINGS.offer_text){
@@ -184,7 +185,7 @@ function initHoleDesigner(){
       box.appendChild(m);
     });
     const label = document.getElementById("holeCountLabel");
-    label.textContent = state.holes.length ? `${state.holes.length} dziur(y) — +${state.holes.length*PRICE_PER_HOLE} zł` : "Brak dziur — czyste spodnie.";
+    label.textContent = state.holes.length ? `${state.holes.length} dziur(y) — +${state.holes.length*HOLE_PRICE} zł (${HOLE_PRICE} zł / szt.)` : "Brak dziur — czyste spodnie.";
     document.getElementById("removeHoleBtn").disabled = selectedHoleIdx===null;
     document.getElementById("holeSizeRow").style.display = selectedHoleIdx===null ? "none" : "flex";
     if(selectedHoleIdx!==null){
@@ -246,12 +247,11 @@ function initHoleDesigner(){
 }
 let holeDesignerRender = null;
 
-function encodeHoles(holes){
-  const compact = holes.map(h=>({
-    x:Math.round(h.x), y:Math.round(h.y), w:Math.round(h.w), h:Math.round(h.h),
-    styleId: h.styleId, styleName: HOLE_STYLES[h.styleId]?.name || "?"
-  }));
-  return btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
+function currentConfigCode(){
+  return encodeConfig({
+    kolor: state.kolor, kroj: state.kroj, rozmiar: state.rozmiar, hole_price: HOLE_PRICE,
+    holes: state.holes.map(h=>({...h, styleName: HOLE_STYLES[h.styleId]?.name})),
+  });
 }
 
 const STEPS = [0,1,2,3];
@@ -275,7 +275,7 @@ function canAdvance(){
 }
 
 function totalPrice(){
-  return (state.kolor?.price_extra||0)+(state.kroj?.price_extra||0)+(state.holes.length*PRICE_PER_HOLE);
+  return (state.kolor?.price_extra||0)+(state.kroj?.price_extra||0)+(state.holes.length*HOLE_PRICE);
 }
 
 function updateBar(){
@@ -316,7 +316,9 @@ async function submitOrder(){
   const payload = {
     kolor: state.kolor?.name, kroj: state.kroj?.name, rozmiar: state.rozmiar,
     dziury_liczba: state.holes.length,
-    dziury_kod: state.holes.length ? encodeHoles(state.holes) : "(brak dziur)",
+    dziury_kod: state.holes.length ? currentConfigCode() : "(brak dziur)",
+    kod_konfiguracji: currentConfigCode(),
+    cena_dziury: HOLE_PRICE+" zł",
     cena_dodatkowa: totalPrice()+" zł", instagram: ig, email: mail || "(brak)"
   };
   document.getElementById("nextBtn").disabled = true;
@@ -332,5 +334,25 @@ async function submitOrder(){
   document.getElementById("doneScreen").style.display="block";
   document.getElementById("bottombar").style.display="none";
 }
+
+// Kopiowanie kodu konfiguracji (klient lub admin) — działa też na telefonie / bez HTTPS (fallback)
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); return true; }catch(e){}
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.setAttribute("readonly",""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px;";
+  document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false; try{ ok = document.execCommand("copy"); }catch(e){}
+  ta.remove(); return ok;
+}
+document.getElementById("copyCodeBtn").onclick = async ()=>{
+  const msg = document.getElementById("copyCodeMsg");
+  if(!state.kolor || !state.kroj || !state.rozmiar){
+    msg.textContent = "Wybierz kolor, krój i rozmiar, żeby skopiować pełny kod."; return;
+  }
+  const ok = await copyText(currentConfigCode());
+  msg.textContent = ok ? "Skopiowano kod ✓" : "Nie udało się skopiować — zaznacz kod ręcznie.";
+  if(!ok){ const f = document.getElementById("copyCodeFallback"); f.value = currentConfigCode(); f.style.display="block"; f.select(); }
+  setTimeout(()=>{ msg.textContent = ""; }, 3500);
+};
 
 loadOptions();

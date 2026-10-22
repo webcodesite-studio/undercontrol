@@ -75,6 +75,29 @@ Otwórz `config.js` i wklej:
 
 **Tryb testowy admin/admin:** wszystko powyżej działa lokalnie (dane w `localStorage`); upload do R2 nadal wymaga prawdziwego logowania Supabase, ale w trybie testowym przy kolorze jest przycisk „Dodaj zdjęcie z adresu URL”, żeby można było sprawdzić galerie.
 
+## Wersja 3 — sprzedaż z kodem Customów, cena dziury, kontakt, Ustawienia
+
+**Wymagana migracja bazy (jednorazowo, po 002):** SQL Editor → `migrations/003_hole_price_custom_sales.sql` → Run. Tylko *dodaje*: `site_settings.hole_price` (domyślnie 15 zł — tyle co dotychczas) oraz kolumny `kind`, `cut`, `hole_count`, `hole_price`, `custom_code` w `sales`. Istniejące dane i wpisy sprzedaży zostają (stare wpisy to oferty stałe). Nowa instalacja: wystarczy `supabase.sql`.
+
+**Customy (panel)** — bez okienek pop-up: komunikaty pojawiają się w panelu, usuwanie wymaga drugiego kliknięcia („Usuń” → „Na pewno?”).
+- Edycja istniejącego koloru w miejscu: kliknij kolorowe kółko (zmiana koloru), zmień nazwę lub dopłatę w polu i zatwierdź; zapisuje się od razu.
+- Dodawanie koloru (nazwa + wybór koloru + dopłata) i kroju (lista rozwijana) odbywa się w formularzu pod listą; to samo dla stylów dziur.
+
+**Sprzedaż**
+- Formularz u góry zakładki: wybierasz produkt z **aktualnie dostępnych ofert** (niedostępne i zarchiwizowane są pominięte), jego rozmiar i kolor, liczbę sztuk i zapisujesz. Cena podpowiada się z oferty (można zmienić).
+- Tryb **Custom (kod)**: wklej kod konfiguracji — system sam rozpoznaje kolor, krój, rozmiar i liczbę dziur, podpowiada cenę (dopłaty + dziury po cenie z chwili zamówienia). Pola można poprawić ręcznie. Starsze kody (tylko dziury) działają — kolor, krój i rozmiar uzupełniasz z list.
+- Statystyki: łączna liczba sztuk i przychód (zł), według produktu, rozmiaru, koloru, osobno Customy (sztuki, przychód, liczba dziur).
+
+**Cena dziury — jedno źródło prawdy:** *Ustawienia → Cena jednej dziury*, zapisana w `site_settings.hole_price`. Czytają ją: generator (podgląd, etykieta, cena końcowa), kod konfiguracji (zapisuje cenę z chwili zamówienia), dekoder w panelu (porównuje z obecną), rejestr sprzedaży Customów i podpowiedź w zakładce Customy. Domyślna wartość awaryjna jest w jednym miejscu: `DEFAULT_HOLE_PRICE` w `shared.js`. Zmiana ceny nie zmienia starych zamówień — ich kody zachowują cenę z dnia zamówienia.
+
+**Ustawienia** zawierają teraz: nazwę sklepu, nick Instagram, kontakt, politykę prywatności, cenę dziury oraz **wygląd (motywy)** — zakładka „Wygląd” została przeniesiona tutaj. Nazwa, IG i motyw są wczytywane na każdej podstronie (nawigacja, stopka, tytuł karty, linki do Instagrama).
+
+**Kod konfiguracji Customów** (`shared.js`, jeden koder/dekoder dla generatora i panelu): zawiera kolor, krój, rozmiar, dziury, cenę dziury i sumę dopłat. Klient (i admin) kopiuje go dyskretnym przyciskiem „Kopiuj kod konfiguracji” na dole generatora; kod trafia też do maila z zamówienia (`kod_konfiguracji`). Dekoder: zakładka „Dekoder”.
+
+**Formularz „Napisz do administratora”** (`kontakt.html`): wiadomość → Cloudflare Worker (`contact-worker/`) → webhook Discorda. Adres webhooka jest wyłącznie sekretem Workera, nie ma go nigdzie w kodzie strony. Walidacja (imię ≤ 60, kontakt ≤ 120, wiadomość 10–1000 znaków, maks. 2 linki), pułapka na boty, minimalny czas wypełnienia, limit 3 wiadomości / 10 min / IP, CORS tylko dla Twojej domeny, wiadomość oczyszczana z pingów. Wdrożenie: `contact-worker/README.md`, potem wpisz adres Workera w `config.js` (`CONTACT_API_URL`). Dopóki tego nie zrobisz, formularz pokaże informację o braku konfiguracji.
+
+**Admin/admin i Supabase:** bez zmian — tryb testowy działa lokalnie na placeholderze w `config.js`, a prawdziwy login Supabase przejmuje po wpisaniu danych. Tryb testowy nadal nie wgrywa plików do R2.
+
 ## Co dodać później
 - Zdjęcia/warstwy PNG zamiast SVG-placeholdera w `index.html` (`#pantsSvg`) — podmień na `<img>` z warstwami nakładanymi przez CSS, albo osobny SVG per kolor.
 - Upload zdjęć opcji przez Supabase Storage (bucket publiczny do odczytu, zapis tylko zalogowani) — rozszerzenie `admin.js`.

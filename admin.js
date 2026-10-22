@@ -23,6 +23,7 @@ const LOCAL_FALLBACK_SETTINGS = {
   offer_text:"Wysyłka gratis do niedzieli!", contact_text:"Napisz do nas na Instagramie.",
   policy_md:"# Polityka prywatności\n\nDane z formularza wykorzystujemy wyłącznie do kontaktu w sprawie zamówienia.",
   theme_bg:"#111113", theme_surface:"#19191c", theme_text:"#f2f2f0", theme_accent:"#d4ff3f", theme_muted:"#8a8a8f", theme_border:"#2c2c30",
+  hole_price: DEFAULT_HOLE_PRICE,
 };
 function localOptions(){ return JSON.parse(localStorage.getItem("localOptions") || JSON.stringify(LOCAL_FALLBACK_OPTIONS)); }
 function saveLocalOptions(d){ localStorage.setItem("localOptions", JSON.stringify(d)); }
@@ -69,7 +70,6 @@ mainTabs.forEach(b=>{
     const isProducts = currentCat === "produkty";
     const isCampaigns = currentCat === "kampanie";
     const isCustomy = currentCat === "customy";
-    const isWyglad = currentCat === "wyglad";
     const isDecoder = currentCat === "dekoder";
     const isSales = currentCat === "sprzedaz";
     document.getElementById("salesPanel").style.display = isSales ? "block" : "none";
@@ -77,13 +77,12 @@ mainTabs.forEach(b=>{
     document.getElementById("settingsPanel").style.display = isSettings ? "block" : "none";
     document.getElementById("productsPanel").style.display = isProducts ? "block" : "none";
     document.getElementById("campaignsPanel").style.display = isCampaigns ? "block" : "none";
-    document.getElementById("wygladPanel").style.display = isWyglad ? "block" : "none";
     document.getElementById("decoderPanel").style.display = isDecoder ? "block" : "none";
     if(isSettings) loadSettings();
     else if(isProducts) loadProducts();
     else if(isCampaigns) loadCampaigns();
     else if(isSales) loadSales();
-    else if(isCustomy){ loadRows(); loadBaseImage(); }
+    else if(isCustomy){ loadRows(); loadBaseImage(); showHolePriceHint(); }
   };
 });
 document.querySelectorAll('.tabs button[data-subcat]').forEach(b=>{
@@ -93,7 +92,6 @@ document.querySelectorAll('.tabs button[data-subcat]').forEach(b=>{
     currentOptionCat = b.dataset.subcat;
     const isStyleDziur = currentOptionCat === "style_dziur";
     document.getElementById("list").style.display = isStyleDziur ? "none" : "block";
-    document.getElementById("addBtn").style.display = isStyleDziur ? "none" : "block";
     document.getElementById("holeStylesPanel").style.display = isStyleDziur ? "block" : "none";
     if(isStyleDziur) loadHoleStyles(); else renderList();
   };
@@ -110,16 +108,33 @@ function escapeTxt(s){ const d=document.createElement("div"); d.textContent=s||"
 function escapeAttr(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
+// ---- Komunikaty inline (zamiast okienek alert/confirm) ----
+function flash(id, text, kind){
+  const el = document.getElementById(id); if(!el) return;
+  el.textContent = text; el.className = "inline-msg " + (kind||"ok"); el.style.display = text ? "block" : "none";
+  clearTimeout(el._t); if(kind==="ok" && text) el._t = setTimeout(()=>{ el.style.display="none"; }, 4000);
+}
+// Przycisk z potwierdzeniem w dwóch krokach (zamiast confirm())
+function twoStepButton(label, confirmLabel, onConfirm){
+  const b = document.createElement("button"); b.className = "edit-btn"; b.style.color = "#ff6b6b"; b.textContent = label;
+  let armed = false, t;
+  b.onclick = ()=>{
+    if(!armed){ armed = true; b.textContent = confirmLabel; b.classList.add("armed"); t = setTimeout(()=>{ armed=false; b.textContent=label; b.classList.remove("armed"); }, 3500); }
+    else { clearTimeout(t); onConfirm(); }
+  };
+  return b;
+}
+
 // ---- Upload zdjęć do R2 (przez Worker) ----
-async function uploadToR2(file){
+async function uploadToR2(file, notify = alert){
   if(R2_UPLOAD_URL.includes("TWOJ-WORKER")){
-    alert("Upload zdjęć nie jest jeszcze skonfigurowany — uzupełnij R2_UPLOAD_URL w config.js (instrukcja w r2-worker/README.md).");
+    notify("Upload zdjęć nie jest jeszcze skonfigurowany — uzupełnij R2_UPLOAD_URL w config.js (instrukcja w r2-worker/README.md).");
     return null;
   }
   try{
     const { data:{ session } } = await sb.auth.getSession();
-    if(!session){ alert("Upload wymaga zalogowania przez Supabase (tryb testowy admin/admin nie obsługuje uploadu)."); return null; }
-    if(file.size > 5*1024*1024){ alert("Plik jest za duży (maks. 5 MB)."); return null; }
+    if(!session){ notify("Upload wymaga zalogowania przez Supabase (tryb testowy admin/admin nie obsługuje uploadu)."); return null; }
+    if(file.size > 5*1024*1024){ notify("Plik jest za duży (maks. 5 MB)."); return null; }
     const res = await fetch(R2_UPLOAD_URL, {
       method: "POST",
       headers: { "Content-Type": file.type || "application/octet-stream", "Authorization": "Bearer "+session.access_token },
@@ -131,7 +146,7 @@ async function uploadToR2(file){
     }
     const data = await res.json();
     return data.url;
-  }catch(e){ alert("Błąd uploadu: "+e.message); return null; }
+  }catch(e){ notify("Błąd uploadu: "+e.message); return null; }
 }
 
 // ---- Produkty (oferta na stronie głównej) ----
@@ -376,109 +391,177 @@ async function deleteProduct(id){
 }
 document.getElementById("addProductBtn").onclick = ()=> openProductModal(null);
 
-// ---- Sprzedaż (statystyki stałych ofert) ----
-// Zamówienia przychodzą mailem (Formspree), więc sprzedaż rejestrujesz tu ręcznie po potwierdzeniu zamówienia.
+// ---- Sprzedaż (statystyki ofert stałych i Customów) ----
+// Zamówienia przychodzą mailem (Formspree), więc sprzedaż rejestrujesz tu po potwierdzeniu zamówienia.
+const CUSTOM_LABEL = "Custom (na zamówienie)";
 let sales = [];
+let saleMode = "offer";
+async function ensureOptions(){
+  if(rows.length) return;
+  if(localDevMode){ rows = localOptions(); return; }
+  const { data } = await sb.from("options").select("*").order("category").order("sort_order",{ascending:true,nullsFirst:true});
+  rows = data || [];
+}
 async function loadSales(){
   if(localDevMode){ sales = JSON.parse(localStorage.getItem("localSales")||"[]"); }
   else {
     const { data, error } = await sb.from("sales").select("*").order("sold_at",{ascending:false}).order("created_at",{ascending:false});
-    if(error){ alert("Błąd: "+error.message+(/sales/.test(error.message)?"\nUruchom migrację SQL z README (migrations/002_*.sql).":"")); return; }
+    if(error){ flash("saleMsg","Błąd wczytywania sprzedaży: "+error.message+(/sales|kind|column/.test(error.message)?" — uruchom migracje SQL z README (002, 003).":""),"err"); return; }
     sales = data || [];
   }
   if(!products.length) await loadProductsSilently();
+  await ensureOptions();
+  setupSaleForm();
   renderSales();
 }
 async function loadProductsSilently(){
   if(localDevMode){ products = JSON.parse(localStorage.getItem("localProducts")||"[]"); return; }
   const { data } = await sb.from("products").select("*"); products = data || [];
 }
+const isCustomSale = r => r.kind === "custom";
 function renderSales(){
   const items = sales.reduce((s,r)=>s+r.quantity,0);
   const revenue = sales.reduce((s,r)=>s+r.quantity*Number(r.unit_price),0);
+  const custom = sales.filter(isCustomSale);
+  const cItems = custom.reduce((s,r)=>s+r.quantity,0), cRev = custom.reduce((s,r)=>s+r.quantity*Number(r.unit_price),0);
+  const cHoles = custom.reduce((s,r)=>s+r.quantity*(r.hole_count||0),0);
   document.getElementById("salesSummary").innerHTML = `
     <div class="stat"><div class="stat-n" id="statItems">${items}</div><div class="stat-l">sprzedanych sztuk</div></div>
-    <div class="stat"><div class="stat-n" id="statRevenue">${fmtPLN(revenue)}</div><div class="stat-l">łączny przychód</div></div>`;
+    <div class="stat"><div class="stat-n" id="statRevenue">${fmtPLN(revenue)}</div><div class="stat-l">łączny przychód</div></div>
+    <div class="stat"><div class="stat-n" id="statCustomItems">${cItems}</div><div class="stat-l">w tym Customy (szt.)</div></div>
+    <div class="stat"><div class="stat-n" id="statCustomRevenue">${fmtPLN(cRev)}</div><div class="stat-l">przychód z Customów${cHoles?` · ${cHoles} dziur`:""}</div></div>`;
   const group = (keyFn, labelFn) => {
     const m = new Map();
     sales.forEach(r=>{ const k=keyFn(r); const e=m.get(k)||{label:labelFn(r),qty:0,sum:0}; e.qty+=r.quantity; e.sum+=r.quantity*Number(r.unit_price); m.set(k,e); });
     return [...m.values()].sort((a,b)=>b.qty-a.qty);
   };
-  const table = (rows, head) => rows.length
-    ? `<table class="stat-table"><thead><tr><th>${head}</th><th>Szt.</th><th>Przychód</th></tr></thead><tbody>${rows.map(e=>`<tr><td>${e.label}</td><td>${e.qty}</td><td>${fmtPLN(e.sum)}</td></tr>`).join("")}</tbody></table>`
+  const table = (rows_, head) => rows_.length
+    ? `<table class="stat-table"><thead><tr><th>${head}</th><th>Szt.</th><th>Przychód</th></tr></thead><tbody>${rows_.map(e=>`<tr><td>${e.label}</td><td>${e.qty}</td><td>${fmtPLN(e.sum)}</td></tr>`).join("")}</tbody></table>`
     : `<p style="color:var(--muted);font-size:13px;">Brak danych.</p>`;
-  document.getElementById("salesByProduct").innerHTML = table(group(r=>r.product_name, r=>escapeTxt(r.product_name)), "Produkt");
-  document.getElementById("salesByVariant").innerHTML = table(
-    group(r=>[r.product_name,r.size,r.color_name].join("|"),
-          r=>`${escapeTxt(r.product_name)} · ${escapeTxt(r.size||"-")} · <span class="mini-dot" style="background:${HEX_RE.test(r.color_hex||"")?r.color_hex:"#555"}"></span>${escapeTxt(r.color_name||"-")}`),
-    "Produkt · rozmiar · kolor");
+  const pname = r => isCustomSale(r) ? CUSTOM_LABEL : r.product_name;
+  const dot = hex => `<span class="mini-dot" style="background:${HEX_RE.test(hex||"")?hex:"#555"}"></span>`;
+  document.getElementById("salesByProduct").innerHTML = table(group(r=>pname(r), r=>escapeTxt(pname(r))), "Produkt");
+  document.getElementById("salesBySize").innerHTML = table(
+    group(r=>r.size||"-", r=>escapeTxt(r.size||"-")).sort((a,b)=>SIZE_LIST.indexOf(a.label)-SIZE_LIST.indexOf(b.label)), "Rozmiar");
+  document.getElementById("salesByColor").innerHTML = table(group(r=>(r.color_name||"-").toLowerCase(), r=>dot(r.color_hex)+escapeTxt(r.color_name||"-")), "Kolor");
+  // tabela Customów liczona tylko z wpisów custom:
+  const cg = new Map();
+  custom.forEach(r=>{ const k=[r.cut,r.size,r.color_name,r.hole_count].join("|"); const e=cg.get(k)||{label:`${escapeTxt(r.cut||"-")} · ${escapeTxt(r.size||"-")} · ${dot(r.color_hex)}${escapeTxt(r.color_name||"-")} · ${r.hole_count||0} dziur`,qty:0,sum:0}; e.qty+=r.quantity; e.sum+=r.quantity*Number(r.unit_price); cg.set(k,e); });
+  document.getElementById("salesCustom").innerHTML = table([...cg.values()].sort((a,b)=>b.qty-a.qty), "Krój · rozmiar · kolor · dziury");
   const recent = document.getElementById("salesRecent"); recent.innerHTML = "";
   sales.slice(0,30).forEach(r=>{
     const card = document.createElement("div"); card.className="card";
     const meta = document.createElement("div"); meta.className="meta";
-    meta.innerHTML = `<div style="font-size:14px;">${r.quantity} × ${escapeTxt(r.product_name)} (${escapeTxt(r.size||"-")}, ${escapeTxt(r.color_name||"-")})</div>
+    meta.innerHTML = `<div style="font-size:14px;">${r.quantity} × ${escapeTxt(pname(r))} (${escapeTxt(r.size||"-")}, ${escapeTxt(r.color_name||"-")}${isCustomSale(r)?`, ${r.hole_count||0} dziur`:""})</div>
       <div style="font-size:12px;color:var(--muted);">${escapeTxt(r.sold_at)} · ${fmtPLN(r.quantity*Number(r.unit_price))}</div>`;
-    const del = document.createElement("button"); del.className="edit-btn"; del.style.color="#ff6b6b"; del.textContent="Usuń";
-    del.onclick = ()=> deleteSale(r.id);
-    card.append(meta, del); recent.appendChild(card);
+    card.append(meta, twoStepButton("Usuń", "Na pewno?", ()=>deleteSale(r.id)));
+    recent.appendChild(card);
   });
   if(!sales.length) recent.innerHTML = '<p style="color:var(--muted);font-size:13px;">Nie zarejestrowano jeszcze sprzedaży.</p>';
 }
-function openSaleModal(){
-  const active = products.filter(p=>!p.archived), archived = products.filter(p=>p.archived);
-  if(!products.length){ alert("Najpierw dodaj produkt w zakładce „Stałe oferty”."); return; }
-  const opt = p=>`<option value="${escapeAttr(p.id)}">${escapeTxt(p.name)}</option>`;
-  openModal(`
-    <h3>Zarejestruj sprzedaż</h3>
-    <div id="sErr" class="form-err" role="alert" style="display:none;"></div>
-    <label for="sProduct">Produkt</label>
-    <select id="sProduct">${active.map(opt).join("")}${archived.length?`<optgroup label="Archiwum">${archived.map(opt).join("")}</optgroup>`:""}</select>
-    <label for="sSize">Rozmiar</label><select id="sSize"></select>
-    <label for="sColor">Kolor</label><select id="sColor"></select>
-    <label for="sQty">Liczba sztuk</label><input type="number" id="sQty" min="1" step="1" value="1">
-    <label for="sPrice">Cena za sztukę (zł)</label><input type="number" id="sPrice" min="0" step="0.01">
-    <label for="sDate">Data sprzedaży</label><input type="date" id="sDate" value="${todayStr()}">
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="modalCancel">Anuluj</button>
-      <button class="btn btn-primary" id="modalSave">Zapisz</button>
-    </div>`);
-  const sel = id=>products.find(x=>String(x.id)===String(id));
-  const fill = ()=>{
-    const p = sel(document.getElementById("sProduct").value);
-    const sizes = parseSizeChart(p.size_chart).rows.map(r=>r.size);
-    const sizeNames = sizes.length ? sizes : (p.size_chart||"").split("\n").map(l=>l.split(":")[0].trim()).filter(Boolean);
-    document.getElementById("sSize").innerHTML = sizeNames.length ? sizeNames.map(s=>`<option>${escapeTxt(s)}</option>`).join("") : "<option value=''>—</option>";
-    document.getElementById("sColor").innerHTML = variantsOf(p).map((v,i)=>`<option value="${i}">${escapeTxt(v.name||v.color)}</option>`).join("");
-    document.getElementById("sPrice").value = p.price;
-  };
-  document.getElementById("sProduct").onchange = fill; fill();
-  document.getElementById("modalCancel").onclick = closeModal;
-  document.getElementById("modalSave").onclick = ()=>{
-    const err = m=>{ const e=document.getElementById("sErr"); e.textContent=m; e.style.display="block"; };
-    const p = sel(document.getElementById("sProduct").value);
-    const qty = Number(document.getElementById("sQty").value), price = Number(document.getElementById("sPrice").value);
-    if(!Number.isInteger(qty) || qty < 1) return err("Liczba sztuk musi być liczbą całkowitą ≥ 1.");
-    if(!Number.isFinite(price) || price < 0) return err("Podaj poprawną cenę (zł).");
-    const sold_at = document.getElementById("sDate").value;
-    if(!sold_at) return err("Podaj datę sprzedaży.");
-    const v = variantsOf(p)[+document.getElementById("sColor").value];
-    const size = document.getElementById("sSize").value;
-    closeModal();
-    addSale({ product_id: p.id, product_name: p.name, size, color_name: v.name||v.color, color_hex: v.color, quantity: qty, unit_price: price, sold_at });
-  };
+
+// --- formularz sprzedaży (inline, bez okienek) ---
+const $s = id => document.getElementById(id);
+function offersForSale(){ return products.filter(p=>!p.archived && p.available); }
+function setupSaleForm(){
+  const offers = offersForSale();
+  const prev = $s("sProduct").value;
+  $s("sProduct").innerHTML = offers.length
+    ? offers.map(p=>`<option value="${escapeAttr(p.id)}">${escapeTxt(p.name)} — ${p.price} zł</option>`).join("")
+    : '<option value="">Brak dostępnych ofert</option>';
+  if(prev && offers.some(p=>String(p.id)===prev)) $s("sProduct").value = prev;
+  fillOfferFields();
+  // opcje Customów: kolory i kroje z konfiguratora + rozmiary
+  const colors = rows.filter(r=>r.category==="kolor"), cuts = rows.filter(r=>r.category==="kroj");
+  $s("sCColor").innerHTML = colors.map(c=>`<option value="${escapeAttr(c.name)}" data-hex="${escapeAttr(c.hex||"")}">${escapeTxt(c.name)}</option>`).join("") || "<option value=''>—</option>";
+  $s("sCCut").innerHTML = cuts.map(c=>`<option>${escapeTxt(c.name)}</option>`).join("") || "<option value=''>—</option>";
+  $s("sCSize").innerHTML = SIZE_LIST.map(s=>`<option>${s}</option>`).join("");
+  $s("sDate").value = $s("sDate").value || todayStr();
+  setSaleMode(saleMode);
 }
+function fillOfferFields(){
+  const p = products.find(x=>String(x.id)===$s("sProduct").value);
+  if(!p){ $s("sSize").innerHTML = "<option value=''>—</option>"; $s("sColor").innerHTML = "<option value=''>—</option>"; return; }
+  const sizes = parseSizeChart(p.size_chart).rows.map(r=>r.size);
+  const names = sizes.length ? sizes : (p.size_chart||"").split("\n").map(l=>l.split(":")[0].trim()).filter(Boolean);
+  $s("sSize").innerHTML = names.length ? names.map(s=>`<option>${escapeTxt(s)}</option>`).join("") : "<option value=''>—</option>";
+  $s("sColor").innerHTML = variantsOf(p).map((v,i)=>`<option value="${i}">${escapeTxt(v.name||v.color)}</option>`).join("");
+  $s("sPrice").value = p.price;
+}
+function setSaleMode(mode){
+  saleMode = mode;
+  document.querySelectorAll("#saleModes button").forEach(b=>b.classList.toggle("active", b.dataset.mode===mode));
+  $s("saleOffer").style.display = mode==="offer" ? "block" : "none";
+  $s("saleCustom").style.display = mode==="custom" ? "block" : "none";
+  if(mode==="offer") fillOfferFields();
+}
+document.querySelectorAll("#saleModes button").forEach(b=> b.onclick = ()=> setSaleMode(b.dataset.mode));
+$s("sProduct").onchange = fillOfferFields;
+
+let decodedSale = null;
+function showSaleErr(msg){ const e=$s("saleErr"); e.textContent=msg; e.style.display = msg ? "block" : "none"; }
+async function onCustomCodeInput(){
+  const code = $s("sCode").value.trim(), box = $s("sCodeInfo");
+  decodedSale = null; showSaleErr("");
+  if(!code){ box.innerHTML = ""; return; }
+  let cfg;
+  try{ cfg = decodeConfig(code); }catch(e){ box.innerHTML = `<span style="color:#ff9a9a;">${escapeTxt(e.message)}</span>`; return; }
+  const cur = holePriceOf(await fetchSettings());
+  const holePrice = cfg.holePrice ?? cur;
+  decodedSale = { cfg, holePrice };
+  const setSel = (id, val) => { const s=$s(id); if(val && ![...s.options].some(o=>o.value===val||o.text===val)) s.insertAdjacentHTML("beforeend",`<option value="${escapeAttr(val)}">${escapeTxt(val)}</option>`); if(val) s.value = val; };
+  setSel("sCColor", cfg.kolor?.name); setSel("sCCut", cfg.kroj?.name);
+  if(cfg.rozmiar) $s("sCSize").value = cfg.rozmiar;
+  const total = cfg.total ?? ((cfg.kolor?.extra||0)+(cfg.kroj?.extra||0)+cfg.holes.length*holePrice);
+  $s("sPrice").value = total;
+  box.innerHTML = `Rozpoznano: <b>${cfg.holes.length}</b> dziur × ${fmtPLN(holePrice)}`
+    +(holePrice!==cur?` <span style="color:var(--muted);">(obecna cena dziury w Ustawieniach: ${fmtPLN(cur)})</span>`:"")
+    +` · dopłaty łącznie <b>${fmtPLN(total)}</b>`
+    +(cfg.legacy?'<br><span style="color:#ffd166;">To starszy kod (tylko dziury) — uzupełnij kolor, krój i rozmiar poniżej.</span>':"");
+}
+$s("sCode").oninput = onCustomCodeInput;
+
+$s("saleSaveBtn").onclick = async ()=>{
+  showSaleErr("");
+  const qty = Number($s("sQty").value), price = Number($s("sPrice").value), sold_at = $s("sDate").value;
+  if(!Number.isInteger(qty) || qty < 1) return showSaleErr("Liczba sztuk musi być liczbą całkowitą ≥ 1.");
+  if(!Number.isFinite(price) || price < 0) return showSaleErr("Podaj poprawną cenę za sztukę (zł).");
+  if(!sold_at) return showSaleErr("Podaj datę sprzedaży.");
+  let row;
+  if(saleMode==="offer"){
+    const p = products.find(x=>String(x.id)===$s("sProduct").value);
+    if(!p) return showSaleErr("Wybierz produkt z listy (dodaj ofertę w zakładce „Stałe oferty”).");
+    if(!$s("sSize").value) return showSaleErr("Ten produkt nie ma rozmiarów — dodaj je w edycji produktu.");
+    const v = variantsOf(p)[+$s("sColor").value];
+    row = { product_id:p.id, product_name:p.name, size:$s("sSize").value, color_name:v.name||v.color, color_hex:v.color, quantity:qty, unit_price:price, sold_at };
+  } else {
+    if(!$s("sCode").value.trim() || !decodedSale) return showSaleErr("Wklej poprawny kod konfiguracji z generatora Customów.");
+    const colorOpt = $s("sCColor").selectedOptions[0];
+    if(!$s("sCColor").value || !$s("sCCut").value) return showSaleErr("Wybierz kolor i krój.");
+    row = { kind:"custom", product_id:null, product_name:CUSTOM_LABEL, size:$s("sCSize").value, color_name:$s("sCColor").value,
+      color_hex: decodedSale.cfg.kolor?.hex || colorOpt?.dataset.hex || null, cut:$s("sCCut").value,
+      hole_count: decodedSale.cfg.holes.length, hole_price: decodedSale.holePrice, custom_code: $s("sCode").value.trim(),
+      quantity:qty, unit_price:price, sold_at };
+  }
+  const ok = await addSale(row);
+  if(ok){
+    flash("saleMsg", `Zapisano: ${qty} × ${row.product_name} (${row.size}, ${row.color_name}) — ${fmtPLN(qty*price)}`, "ok");
+    $s("sQty").value = 1;
+    if(saleMode==="custom"){ $s("sCode").value=""; $s("sCodeInfo").innerHTML=""; decodedSale=null; }
+    $s("sQty").focus();
+  }
+};
 async function addSale(row){
-  if(localDevMode){ row.id="s"+Date.now()+Math.random().toString(36).slice(2,5); sales=[row,...sales]; localStorage.setItem("localSales",JSON.stringify(sales)); renderSales(); return; }
+  if(localDevMode){ row.id="s"+Date.now()+Math.random().toString(36).slice(2,5); sales=[row,...sales]; localStorage.setItem("localSales",JSON.stringify(sales)); renderSales(); return true; }
   const { error } = await sb.from("sales").insert(row);
-  if(error) alert("Błąd zapisu sprzedaży: "+error.message); else loadSales();
+  if(error){ showSaleErr("Błąd zapisu sprzedaży: "+error.message+(/column|kind|cut|hole/.test(error.message)?" — uruchom migrację 003 z README.":"")); return false; }
+  await loadSales(); return true;
 }
 async function deleteSale(id){
-  if(!confirm("Usunąć ten wpis sprzedaży?")) return;
   if(localDevMode){ sales=sales.filter(s=>s.id!==id); localStorage.setItem("localSales",JSON.stringify(sales)); renderSales(); return; }
   const { error } = await sb.from("sales").delete().eq("id", id);
-  if(error) alert("Błąd: "+error.message); else loadSales();
+  if(error) flash("saleMsg","Błąd: "+error.message,"err"); else loadSales();
 }
-document.getElementById("addSaleBtn").onclick = openSaleModal;
 
 // ---- Kampanie (planowane banery z harmonogramem) ----
 let campaigns = [];
@@ -564,32 +647,68 @@ async function fetchSettings(){
 async function saveSettingsPatch(patch){
   if(localDevMode){ const merged = {...localSettings(), ...patch}; saveLocalSettings(merged); return true; }
   const { error } = await sb.from("site_settings").update(patch).eq("id",1);
-  if(error){ alert("Błąd zapisu: "+error.message); return false; }
+  if(error){ flash("settingsMsg","Błąd zapisu: "+error.message+(/hole_price/.test(error.message)?" — uruchom migrację 003 z README.":""),"err"); return false; }
   return true;
 }
 
-// ---- Ustawienia sklepu ----
+// ---- Ustawienia sklepu (nazwa, Instagram, wygląd, cena dziury) ----
+// Jedno źródło prawdy: wiersz site_settings (id=1). Strona klienta czyta go przy każdym wejściu (nav.js / app.js).
+const THEMES = [
+  { name:"Ciemny streetwear", bg:"#111113", surface:"#19191c", text:"#f2f2f0", accent:"#d4ff3f", muted:"#8a8a8f", border:"#2c2c30" },
+  { name:"Jasny minimalistyczny", bg:"#f7f6f3", surface:"#ffffff", text:"#171717", accent:"#1a1a1a", muted:"#767676", border:"#e2e0da" },
+  { name:"Mono khaki", bg:"#14140f", surface:"#1e1e17", text:"#f2f0e6", accent:"#c9b35a", muted:"#8a8673", border:"#303024" },
+  { name:"Czarno-czerwony", bg:"#0f0f10", surface:"#1a1a1b", text:"#f2f2f2", accent:"#ff3b3b", muted:"#8a8a8a", border:"#2a2a2c" },
+];
+function applyThemeLocally(t){
+  const root = document.documentElement.style;
+  [["--bg",t.bg],["--surface",t.surface],["--text",t.text],["--accent",t.accent],["--muted",t.muted],["--border",t.border]].forEach(([k,v])=>root.setProperty(k,v));
+}
+function renderThemeCards(currentAccent){
+  const box = document.getElementById("themeCards"); box.innerHTML = "";
+  THEMES.forEach(t=>{
+    const card = document.createElement("button"); card.type = "button";
+    card.className = "theme-card"+(t.accent===currentAccent?" active":"");
+    card.innerHTML = `<div class="theme-swatches"><span style="background:${t.bg}"></span><span style="background:${t.surface}"></span><span style="background:${t.accent}"></span></div><div class="tname">${t.name}</div>`;
+    card.onclick = async ()=>{
+      const ok = await saveSettingsPatch({ theme_bg:t.bg, theme_surface:t.surface, theme_text:t.text, theme_accent:t.accent, theme_muted:t.muted, theme_border:t.border });
+      if(ok){ applyThemeLocally(t); renderThemeCards(t.accent); flash("settingsMsg","Zapisano motyw: "+t.name+" — widoczny na całej stronie.","ok"); }
+    };
+    box.appendChild(card);
+  });
+}
 async function loadSettings(){
   const data = await fetchSettings();
-  if(!data){ alert("Błąd pobierania ustawień"); return; }
+  if(!data){ flash("settingsMsg","Błąd pobierania ustawień","err"); return; }
   document.getElementById("shopNameInput").value = data.shop_name || "";
   document.getElementById("sellerIgInput").value = data.seller_ig || "";
   document.getElementById("contactTextInput").value = data.contact_text || "";
   document.getElementById("policyMdInput").value = data.policy_md || "";
+  document.getElementById("holePriceInput").value = holePriceOf(data);
+  renderThemeCards(data.theme_accent);
 }
 document.getElementById("saveSettingsBtn").onclick = async ()=>{
   const ig = document.getElementById("sellerIgInput").value.trim();
   const err = document.getElementById("sellerIgErr");
   if(ig && !validIG(ig)){ err.style.display="block"; return; }
   err.style.display="none";
+  const hp = document.getElementById("holePriceInput").value.trim();
+  const holePrice = Number(hp);
+  if(hp==="" || !Number.isFinite(holePrice) || holePrice < 0 || holePrice > 10000){
+    flash("settingsMsg","Cena dziury musi być liczbą od 0 do 10000 zł.","err"); document.getElementById("holePriceInput").focus(); return;
+  }
   const ok = await saveSettingsPatch({
     shop_name: document.getElementById("shopNameInput").value.trim() || "TWOJA MARKA",
     seller_ig: ig || "twoj_nick",
     contact_text: document.getElementById("contactTextInput").value.trim(),
     policy_md: document.getElementById("policyMdInput").value,
+    hole_price: holePrice,
   });
-  if(ok) alert("Zapisano");
+  if(ok) flash("settingsMsg","Zapisano ustawienia. Cena dziury ("+fmtPLN(holePrice)+") obowiązuje teraz w całym sklepie.","ok");
 };
+async function showHolePriceHint(){
+  const data = await fetchSettings();
+  document.getElementById("holePriceHint").textContent = "Cena jednej dziury: "+fmtPLN(holePriceOf(data))+" (zmienisz ją w Ustawieniach).";
+}
 
 // ---- Baner domyślny (w zakładce Kampanie) ----
 async function loadDefaultBanner(){
@@ -604,13 +723,13 @@ document.getElementById("saveDefaultBannerBtn").onclick = async ()=>{
     offer_enabled: document.getElementById("offerSwitch").classList.contains("on"),
     offer_text: document.getElementById("offerTextInput").value.trim(),
   });
-  if(ok) alert("Zapisano baner domyślny");
+  if(ok) flash("bannerMsg","Zapisano baner domyślny","ok");
 };
 
 async function loadRows(){
   if(localDevMode){ rows = localOptions(); renderList(); return; }
   const { data, error } = await sb.from("options").select("*").order("category").order("sort_order",{ascending:true, nullsFirst:true});
-  if(error){ alert("Błąd pobierania: "+error.message); return; }
+  if(error){ flash("customyMsg","Błąd pobierania: "+error.message,"err"); return; }
   rows = data || [];
   renderList();
 }
@@ -619,51 +738,80 @@ function renderList(){
   const list = document.getElementById("list"); list.innerHTML = "";
   rows.filter(r=>r.category===currentOptionCat).forEach(r=>{
     const card = document.createElement("div"); card.className="card";
-    const dot = document.createElement("div"); dot.className="dot";
-    if(currentOptionCat==="kolor") dot.style.background = r.hex || "#555";
+    let dot;
+    if(currentOptionCat==="kolor"){
+      // edycja koloru w miejscu: kliknięcie w kółko otwiera wybór koloru
+      dot = document.createElement("input"); dot.type = "color"; dot.className = "dot-color";
+      dot.value = HEX_RE.test(r.hex||"") ? r.hex : "#555555"; dot.title = "Zmień kolor"; dot.setAttribute("aria-label","Kolor: "+r.name);
+      dot.onchange = ()=> updateRow(r.id, { hex: dot.value }, "Zapisano kolor „"+r.name+"”");
+    } else { dot = document.createElement("div"); dot.className = "dot"; }
     const meta = document.createElement("div"); meta.className="meta";
-    const nameInput = document.createElement("input"); nameInput.value = r.name;
-    nameInput.onchange = ()=> updateRow(r.id, { name: nameInput.value });
-    const priceInput = document.createElement("input"); priceInput.className="price"; priceInput.type="number";
-    priceInput.value = r.price_extra || 0; priceInput.placeholder="dopłata zł";
-    priceInput.onchange = ()=> updateRow(r.id, { price_extra: Number(priceInput.value) });
+    const nameInput = document.createElement("input"); nameInput.value = r.name; nameInput.setAttribute("aria-label","Nazwa");
+    nameInput.onchange = ()=>{
+      const v = nameInput.value.trim();
+      if(!v){ nameInput.value = r.name; flash("customyMsg","Nazwa nie może być pusta.","err"); return; }
+      updateRow(r.id, { name: v }, "Zapisano nazwę");
+    };
+    const priceInput = document.createElement("input"); priceInput.className="price"; priceInput.type="number"; priceInput.min = "0";
+    priceInput.value = r.price_extra || 0; priceInput.placeholder="dopłata zł"; priceInput.setAttribute("aria-label","Dopłata (zł)");
+    priceInput.onchange = ()=>{
+      const v = Number(priceInput.value);
+      if(!Number.isFinite(v) || v < 0){ priceInput.value = r.price_extra || 0; flash("customyMsg","Dopłata musi być liczbą ≥ 0.","err"); return; }
+      updateRow(r.id, { price_extra: v }, "Zapisano dopłatę");
+    };
     meta.append(nameInput, priceInput);
-    const sw = document.createElement("div"); sw.className="switch"+(r.available?" on":"");
+    const sw = document.createElement("div"); sw.className="switch"+(r.available?" on":""); sw.title = "Dostępny dla klientów";
     sw.onclick = ()=>{ sw.classList.toggle("on"); updateRow(r.id, { available: sw.classList.contains("on") }); };
     card.append(dot, meta, sw);
     list.appendChild(card);
   });
+  renderAddForm();
 }
 
-async function updateRow(id, patch){
+async function updateRow(id, patch, okMsg){
   if(localDevMode){
     rows = rows.map(r=> r.id===id ? {...r, ...patch} : r);
-    saveLocalOptions(rows); renderList(); return;
+    saveLocalOptions(rows); renderList(); if(okMsg) flash("customyMsg",okMsg,"ok"); return;
   }
   const { error } = await sb.from("options").update(patch).eq("id", id);
-  if(error) alert("Błąd zapisu: "+error.message);
-  else loadRows();
+  if(error) flash("customyMsg","Błąd zapisu: "+error.message,"err");
+  else { await loadRows(); if(okMsg) flash("customyMsg",okMsg,"ok"); }
 }
 
-function openCutModal(){
-  const used = rows.filter(r=>r.category==="kroj").map(r=>r.name.toLowerCase());
-  const free = CUT_LIST.filter(c=>!used.includes(c.toLowerCase()));
-  if(!free.length){ alert("Wszystkie dostępne kroje zostały już dodane."); return; }
-  openModal(`
-    <h3>Dodaj krój</h3>
-    <label for="cutSelect">Krój</label>
-    <select id="cutSelect">${free.map(c=>`<option>${escapeTxt(c)}</option>`).join("")}</select>
-    <label for="cutPrice">Dopłata (zł)</label><input type="number" id="cutPrice" min="0" step="1" value="0">
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="modalCancel">Anuluj</button>
-      <button class="btn btn-primary" id="modalSave">Dodaj</button>
-    </div>`);
-  document.getElementById("modalCancel").onclick = closeModal;
-  document.getElementById("modalSave").onclick = async ()=>{
-    const name = document.getElementById("cutSelect").value;
-    const price_extra = Math.max(0, Number(document.getElementById("cutPrice").value) || 0);
-    closeModal();
-    await insertOption({ category:"kroj", name, price_extra, available:true });
+// Formularz dodawania opcji (inline): kolor = nazwa + wybór koloru + dopłata; krój = lista rozwijana + dopłata
+function renderAddForm(){
+  const box = document.getElementById("addOptionForm");
+  const cat = currentOptionCat;
+  if(cat==="style_dziur"){ box.style.display="none"; return; }
+  box.style.display = "block";
+  const usedCuts = rows.filter(r=>r.category==="kroj").map(r=>r.name.toLowerCase());
+  const freeCuts = CUT_LIST.filter(c=>!usedCuts.includes(c.toLowerCase()));
+  const canAdd = cat!=="kroj" || freeCuts.length > 0;
+  let nameField;
+  if(cat==="kroj"){
+    nameField = freeCuts.length
+      ? `<label for="aoCut">Krój</label><select id="aoCut">${freeCuts.map(c=>`<option>${escapeTxt(c)}</option>`).join("")}</select>`
+      : '<p class="hint" style="margin:0 0 8px;">Wszystkie dostępne kroje zostały już dodane.</p>';
+  } else {
+    nameField = `<label for="aoName">Nazwa koloru</label><input type="text" id="aoName" maxlength="40" placeholder="np. Czarny">
+      <label for="aoColor">Kolor</label><input type="color" id="aoColor" value="#555555" style="width:60px;height:38px;padding:0;border:none;background:none;">`;
+  }
+  box.innerHTML = `<div class="add-form"><div class="add-form-title">${cat==="kroj"?"Dodaj krój":"Dodaj kolor"}</div>${nameField}
+    ${canAdd?`<label for="aoPrice">Dopłata (zł)</label><input type="number" id="aoPrice" min="0" step="1" value="0">
+    <button type="button" class="btn btn-primary" id="aoAdd" style="width:100%;margin-top:12px;">Dodaj</button>`:""}</div>`;
+  if(canAdd) document.getElementById("aoAdd").onclick = async ()=>{
+    const price_extra = Number(document.getElementById("aoPrice").value);
+    if(!Number.isFinite(price_extra) || price_extra < 0) return flash("customyMsg","Dopłata musi być liczbą ≥ 0.","err");
+    const row = { category:cat, price_extra, available:true };
+    if(cat==="kroj") row.name = document.getElementById("aoCut").value;
+    else {
+      row.name = document.getElementById("aoName").value.trim();
+      if(!row.name) return flash("customyMsg","Podaj nazwę koloru.","err");
+      if(rows.some(r=>r.category==="kolor" && r.name.toLowerCase()===row.name.toLowerCase())) return flash("customyMsg","Kolor o tej nazwie już istnieje — możesz go edytować na liście.","err");
+      row.hex = document.getElementById("aoColor").value;
+    }
+    await insertOption(row);
+    flash("customyMsg","Dodano: "+row.name,"ok");
   };
 }
 async function insertOption(row){
@@ -672,62 +820,9 @@ async function insertOption(row){
     rows = [...rows, row]; saveLocalOptions(rows); renderList(); return;
   }
   const { error } = await sb.from("options").insert(row);
-  if(error) alert("Błąd dodawania: "+error.message);
-  else loadRows();
+  if(error) flash("customyMsg","Błąd dodawania: "+error.message,"err");
+  else await loadRows();
 }
-document.getElementById("addBtn").onclick = async ()=>{
-  if(currentOptionCat==="kroj"){ openCutModal(); return; }
-  const name = prompt("Nazwa opcji:");
-  if(!name) return;
-  const row = { category: currentOptionCat, name, price_extra:0, available:true };
-  if(currentOptionCat==="kolor") row.hex = prompt("Kolor hex (np. #1a1a1a):", "#555555") || "#555555";
-  if(localDevMode){
-    row.id = "l"+Date.now(); row.sort_order = rows.length+1;
-    rows = [...rows, row]; saveLocalOptions(rows); renderList(); return;
-  }
-  const { error } = await sb.from("options").insert(row);
-  if(error) alert("Błąd dodawania: "+error.message);
-  else loadRows();
-};
-
-// ---- Wygląd (motywy kolorystyczne) ----
-const THEMES = [
-  { name:"Ciemny streetwear", bg:"#111113", surface:"#19191c", text:"#f2f2f0", accent:"#d4ff3f", muted:"#8a8a8f", border:"#2c2c30" },
-  { name:"Jasny minimalistyczny", bg:"#f7f6f3", surface:"#ffffff", text:"#171717", accent:"#1a1a1a", muted:"#767676", border:"#e2e0da" },
-  { name:"Mono khaki", bg:"#14140f", surface:"#1e1e17", text:"#f2f0e6", accent:"#c9b35a", muted:"#8a8673", border:"#303024" },
-  { name:"Czarno-czerwony", bg:"#0f0f10", surface:"#1a1a1b", text:"#f2f2f2", accent:"#ff3b3b", muted:"#8a8a8a", border:"#2a2a2c" },
-];
-document.getElementById("openThemeModalBtn").onclick = async ()=>{
-  const data = await fetchSettings();
-  const currentAccent = data?.theme_accent;
-  openModal(`
-    <h3>Wybierz motyw</h3>
-    ${THEMES.map((t,i)=>`
-      <div class="theme-card${t.accent===currentAccent?" active":""}" data-i="${i}">
-        <div class="theme-swatches"><span style="background:${t.bg}"></span><span style="background:${t.surface}"></span><span style="background:${t.accent}"></span></div>
-        <div class="tname">${t.name}</div>
-      </div>`).join("")}
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="modalCancel">Anuluj</button>
-    </div>`);
-  document.getElementById("modalCancel").onclick = closeModal;
-  document.querySelectorAll(".theme-card").forEach(card=>{
-    card.onclick = async ()=>{
-      const t = THEMES[+card.dataset.i];
-      const ok = await saveSettingsPatch({
-        theme_bg:t.bg, theme_surface:t.surface, theme_text:t.text,
-        theme_accent:t.accent, theme_muted:t.muted, theme_border:t.border,
-      });
-      closeModal();
-      if(ok){
-        const root = document.documentElement.style;
-        root.setProperty("--bg",t.bg); root.setProperty("--surface",t.surface); root.setProperty("--text",t.text);
-        root.setProperty("--accent",t.accent); root.setProperty("--muted",t.muted); root.setProperty("--border",t.border);
-        alert("Zapisano motyw: "+t.name);
-      }
-    };
-  });
-};
 
 // ---- Zdjęcie bazowe do edytora dziur (Customy) ----
 async function loadBaseImage(){
@@ -740,38 +835,49 @@ document.getElementById("baseImgBtn").onclick = ()=> document.getElementById("ba
 document.getElementById("baseImgFile").onchange = async (e)=>{
   const file = e.target.files[0]; if(!file) return;
   document.getElementById("baseImgBtn").textContent = "Wgrywanie...";
-  const url = await uploadToR2(file);
+  const url = await uploadToR2(file, m=>flash("customyMsg",m,"err"));
   document.getElementById("baseImgBtn").textContent = "Wgraj zdjęcie";
   if(url){
     await saveSettingsPatch({ customy_base_image: url });
     loadBaseImage();
-    alert("Zapisano zdjęcie bazowe");
+    flash("customyMsg","Zapisano zdjęcie bazowe","ok");
   }
   e.target.value = "";
 };
 
-// ---- Dekoder projektu dziur ----
+// ---- Dekoder konfiguracji (kod z generatora Customów) ----
 document.getElementById("decodeBtn").onclick = async ()=>{
   const code = document.getElementById("decoderInput").value.trim();
   const result = document.getElementById("decoderResult");
-  if(!code){ result.innerHTML = '<p style="color:#ff6b6b;font-size:13px;">Wklej kod.</p>'; return; }
-  let holes;
-  try{ holes = JSON.parse(decodeURIComponent(escape(atob(code)))); if(!Array.isArray(holes)) throw 0; }
-  catch(e){ result.innerHTML = '<p style="color:#ff6b6b;font-size:13px;">Nieprawidłowy kod.</p>'; return; }
+  const bad = m=>{ result.innerHTML = `<p style="color:#ff6b6b;font-size:13px;">${escapeTxt(m)}</p>`; };
+  if(!code) return bad("Wklej kod.");
+  let cfg; try{ cfg = decodeConfig(code); }catch(e){ return bad(e.message); }
   const data = await fetchSettings();
-  const bg = data?.customy_base_image;
-  const dots = holes.map(h=>{
+  const bg = data?.customy_base_image, curPrice = holePriceOf(data);
+  const holePrice = cfg.holePrice ?? curPrice;
+  const total = cfg.total ?? ((cfg.kolor?.extra||0)+(cfg.kroj?.extra||0)+cfg.holes.length*holePrice);
+  const dots = cfg.holes.map(h=>{
     const w = h.w ?? (h.r*2), hh = h.h ?? (h.r*2); // starsze kody miały tylko promień r
-    return `<div style="position:absolute;left:${h.x}%;top:${h.y}%;width:${w}%;height:${hh}%;
+    return `<div style="position:absolute;left:${Number(h.x)}%;top:${Number(h.y)}%;width:${Number(w)}%;height:${Number(hh)}%;
     transform:translate(-50%,-50%);border-radius:50%;background:rgba(255,59,59,.45);border:2px solid #ff3b3b;"></div>`;
   }).join("");
+  const row = (k,v)=>`<div class="summary-row"><span>${k}</span><b>${v}</b></div>`;
   result.innerHTML = `
     <div style="position:relative;width:100%;max-width:280px;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:var(--surface2);margin-bottom:10px;">
-      ${bg?`<img src="${escapeAttr(bg)}" style="width:100%;height:100%;object-fit:cover;">`:""}
+      ${bg?`<img src="${escapeAttr(bg)}" alt="" style="width:100%;height:100%;object-fit:cover;">`:""}
       ${dots}
     </div>
-    <p style="font-size:12px;color:var(--muted);">${holes.length} dziur(y). Współrzędne (% od lewej/góry, promień w %):</p>
-    <pre style="font-size:11px;color:var(--muted);background:var(--surface2);padding:10px;border-radius:8px;overflow-x:auto;">${escapeTxt(JSON.stringify(holes,null,1))}</pre>`;
+    <div class="decoded-summary">
+      ${row("Kolor", cfg.kolor ? `<span class="mini-dot" style="background:${HEX_RE.test(cfg.kolor.hex||"")?cfg.kolor.hex:"#555"}"></span>${escapeTxt(cfg.kolor.name)}` : "—")}
+      ${row("Krój", escapeTxt(cfg.kroj?.name || "—"))}
+      ${row("Rozmiar", escapeTxt(cfg.rozmiar || "—"))}
+      ${row("Dziury", `${cfg.holes.length} × ${fmtPLN(holePrice)} = ${fmtPLN(cfg.holes.length*holePrice)}`)}
+      ${row("Dopłaty łącznie", fmtPLN(total))}
+    </div>
+    ${holePrice!==curPrice?`<p style="font-size:12px;color:var(--muted);">Cena dziury w kodzie (${fmtPLN(holePrice)}) różni się od obecnej (${fmtPLN(curPrice)}) — klient zamawiał po poprzedniej cenie.</p>`:""}
+    ${cfg.legacy?'<p style="font-size:12px;color:#ffd166;">Starszy kod: zawiera tylko dziury.</p>':""}
+    <p style="font-size:12px;color:var(--muted);">Współrzędne (% od lewej/góry):</p>
+    <pre style="font-size:11px;color:var(--muted);background:var(--surface2);padding:10px;border-radius:8px;overflow-x:auto;">${escapeTxt(JSON.stringify(cfg.holes,null,1))}</pre>`;
 };
 
 // ---- Style dziur (zdjęcia przetarć w edytorze Customów) ----
@@ -779,7 +885,7 @@ let holeStyles = [];
 async function loadHoleStyles(){
   if(localDevMode){ holeStyles = JSON.parse(localStorage.getItem("localHoleStyles")||"[]"); renderHoleStyles(); return; }
   const { data, error } = await sb.from("hole_styles").select("*").order("sort_order",{ascending:true,nullsFirst:true});
-  if(error){ alert("Błąd: "+error.message); return; }
+  if(error){ flash("customyMsg","Błąd: "+error.message,"err"); return; }
   holeStyles = data || []; renderHoleStyles();
 }
 function renderHoleStyles(){
@@ -790,49 +896,33 @@ function renderHoleStyles(){
     const img = document.createElement("img"); img.src = s.image_url; img.style.cssText = "width:40px;height:40px;object-fit:cover;border-radius:8px;";
     const meta = document.createElement("div"); meta.className="meta";
     meta.innerHTML = `<div style="font-size:15px;">${escapeTxt(s.name)}</div>`;
-    const del = document.createElement("button"); del.className="edit-btn"; del.style.color="#ff6b6b"; del.textContent="Usuń";
-    del.onclick = ()=> deleteHoleStyle(s.id);
+    const del = twoStepButton("Usuń", "Na pewno?", ()=> deleteHoleStyle(s.id));
     card.append(img, meta, del); list.appendChild(card);
   });
 }
 async function deleteHoleStyle(id){
-  if(!confirm("Usunąć ten styl dziury?")) return;
   if(localDevMode){ holeStyles=holeStyles.filter(s=>s.id!==id); localStorage.setItem("localHoleStyles",JSON.stringify(holeStyles)); renderHoleStyles(); return; }
   const { error } = await sb.from("hole_styles").delete().eq("id", id);
-  if(error) alert("Błąd: "+error.message); else loadHoleStyles();
+  if(error) flash("customyMsg","Błąd: "+error.message,"err"); else loadHoleStyles();
 }
-document.getElementById("addHoleStyleBtn").onclick = ()=>{
-  openModal(`
-    <h3>Nowy styl dziury</h3>
-    <label>Nazwa</label><input type="text" id="mHsName" placeholder="np. Poszarpana duża">
-    <label>Zdjęcie (najlepiej PNG z przezroczystym tłem, sam wycięty otwór)</label>
-    <div id="hsImgPreview" style="margin:8px 0;"></div>
-    <input type="file" id="hsImgFile" accept="image/*" style="display:none;">
-    <button type="button" class="add-btn" id="hsImgBtn" style="padding:8px;">Wgraj zdjęcie</button>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="modalCancel">Anuluj</button>
-      <button class="btn btn-primary" id="modalSave">Zapisz</button>
-    </div>`);
-  let uploadedUrl = null;
-  document.getElementById("modalCancel").onclick = closeModal;
-  document.getElementById("hsImgBtn").onclick = ()=> document.getElementById("hsImgFile").click();
-  document.getElementById("hsImgFile").onchange = async (e)=>{
-    const file = e.target.files[0]; if(!file) return;
-    document.getElementById("hsImgBtn").textContent = "Wgrywanie...";
-    const url = await uploadToR2(file);
-    document.getElementById("hsImgBtn").textContent = "Wgraj zdjęcie";
-    if(url){ uploadedUrl = url; document.getElementById("hsImgPreview").innerHTML = `<img src="${url}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;">`; }
-  };
-  document.getElementById("modalSave").onclick = async ()=>{
-    const name = document.getElementById("mHsName").value.trim();
-    if(!name){ alert("Podaj nazwę stylu"); return; }
-    if(!uploadedUrl){ alert("Wgraj zdjęcie"); return; }
-    const row = { name, image_url: uploadedUrl, sort_order: holeStyles.length+1 };
-    closeModal();
-    if(localDevMode){ row.id="hs"+Date.now(); holeStyles=[...holeStyles,row]; localStorage.setItem("localHoleStyles",JSON.stringify(holeStyles)); renderHoleStyles(); return; }
-    const { error } = await sb.from("hole_styles").insert(row);
-    if(error) alert("Błąd: "+error.message); else loadHoleStyles();
-  };
+let hsUploadedUrl = null;
+document.getElementById("hsImgBtn").onclick = ()=> document.getElementById("hsImgFile").click();
+document.getElementById("hsImgFile").onchange = async (e)=>{
+  const file = e.target.files[0]; e.target.value = ""; if(!file) return;
+  const btn = document.getElementById("hsImgBtn"); btn.textContent = "Wgrywanie...";
+  const url = await uploadToR2(file, m=>flash("customyMsg",m,"err"));
+  btn.textContent = "Wgraj zdjęcie";
+  if(url){ hsUploadedUrl = url; document.getElementById("hsImgPreview").innerHTML = `<img src="${escapeAttr(url)}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;">`; }
+};
+document.getElementById("addHoleStyleBtn").onclick = async ()=>{
+  const name = document.getElementById("hsName").value.trim();
+  if(!name) return flash("customyMsg","Podaj nazwę stylu.","err");
+  if(!hsUploadedUrl) return flash("customyMsg","Wgraj zdjęcie stylu.","err");
+  const row = { name, image_url: hsUploadedUrl, sort_order: holeStyles.length+1 };
+  const reset = ()=>{ hsUploadedUrl = null; document.getElementById("hsName").value=""; document.getElementById("hsImgPreview").innerHTML=""; flash("customyMsg","Dodano styl: "+name,"ok"); };
+  if(localDevMode){ row.id="hs"+Date.now(); holeStyles=[...holeStyles,row]; localStorage.setItem("localHoleStyles",JSON.stringify(holeStyles)); renderHoleStyles(); reset(); return; }
+  const { error } = await sb.from("hole_styles").insert(row);
+  if(error) flash("customyMsg","Błąd: "+error.message,"err"); else { loadHoleStyles(); reset(); }
 };
 
 checkSession();

@@ -45,6 +45,8 @@ window.SELLER_IG = typeof IG_NICK !== "undefined" ? IG_NICK : "twoj_nick";
 
   const shopName = settings?.shop_name || FALLBACK_NAME;
   if(shopTarget) shopTarget.textContent = shopName;
+  // tytuł karty z nazwą sklepu (jednorazowo, bez dublowania)
+  if(!document.title.includes(shopName)) document.title = document.title + " — " + shopName;
   if(settings?.seller_ig) window.SELLER_IG = settings.seller_ig;
   if(settings) applyTheme(settings);
   buildFooter(shopName, window.SELLER_IG);
