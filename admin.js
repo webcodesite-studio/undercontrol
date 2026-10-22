@@ -70,14 +70,12 @@ mainTabs.forEach(b=>{
     const isProducts = currentCat === "produkty";
     const isCampaigns = currentCat === "kampanie";
     const isCustomy = currentCat === "customy";
-    const isDecoder = currentCat === "dekoder";
     const isSales = currentCat === "sprzedaz";
     document.getElementById("salesPanel").style.display = isSales ? "block" : "none";
     document.getElementById("customySubtabs").style.display = isCustomy ? "block" : "none";
     document.getElementById("settingsPanel").style.display = isSettings ? "block" : "none";
     document.getElementById("productsPanel").style.display = isProducts ? "block" : "none";
     document.getElementById("campaignsPanel").style.display = isCampaigns ? "block" : "none";
-    document.getElementById("decoderPanel").style.display = isDecoder ? "block" : "none";
     if(isSettings) loadSettings();
     else if(isProducts) loadProducts();
     else if(isCampaigns) loadCampaigns();
@@ -493,33 +491,28 @@ function setSaleMode(mode){
   document.querySelectorAll("#saleModes button").forEach(b=>b.classList.toggle("active", b.dataset.mode===mode));
   $s("saleOffer").style.display = mode==="offer" ? "block" : "none";
   $s("saleCustom").style.display = mode==="custom" ? "block" : "none";
-  if(mode==="offer") fillOfferFields();
+  salePriceTouched = false;
+  if(mode==="offer") fillOfferFields(); else updateCustomPrice();
 }
 document.querySelectorAll("#saleModes button").forEach(b=> b.onclick = ()=> setSaleMode(b.dataset.mode));
 $s("sProduct").onchange = fillOfferFields;
 
-let decodedSale = null;
 function showSaleErr(msg){ const e=$s("saleErr"); e.textContent=msg; e.style.display = msg ? "block" : "none"; }
-async function onCustomCodeInput(){
-  const code = $s("sCode").value.trim(), box = $s("sCodeInfo");
-  decodedSale = null; showSaleErr("");
-  if(!code){ box.innerHTML = ""; return; }
-  let cfg;
-  try{ cfg = decodeConfig(code); }catch(e){ box.innerHTML = `<span style="color:#ff9a9a;">${escapeTxt(e.message)}</span>`; return; }
-  const cur = holePriceOf(await fetchSettings());
-  const holePrice = cfg.holePrice ?? cur;
-  decodedSale = { cfg, holePrice };
-  const setSel = (id, val) => { const s=$s(id); if(val && ![...s.options].some(o=>o.value===val||o.text===val)) s.insertAdjacentHTML("beforeend",`<option value="${escapeAttr(val)}">${escapeTxt(val)}</option>`); if(val) s.value = val; };
-  setSel("sCColor", cfg.kolor?.name); setSel("sCCut", cfg.kroj?.name);
-  if(cfg.rozmiar) $s("sCSize").value = cfg.rozmiar;
-  const total = cfg.total ?? ((cfg.kolor?.extra||0)+(cfg.kroj?.extra||0)+cfg.holes.length*holePrice);
-  $s("sPrice").value = total;
-  box.innerHTML = `Rozpoznano: <b>${cfg.holes.length}</b> dziur × ${fmtPLN(holePrice)}`
-    +(holePrice!==cur?` <span style="color:var(--muted);">(obecna cena dziury w Ustawieniach: ${fmtPLN(cur)})</span>`:"")
-    +` · dopłaty łącznie <b>${fmtPLN(total)}</b>`
-    +(cfg.legacy?'<br><span style="color:#ffd166;">To starszy kod (tylko dziury) — uzupełnij kolor, krój i rozmiar poniżej.</span>':"");
+let salePriceTouched = false;
+$s("sPrice").addEventListener("input", ()=>{ salePriceTouched = true; });
+// Podpowiedź ceny Customa: dopłata za kolor + dopłata za krój + liczba dziur × aktualna cena dziury (można nadpisać ręcznie)
+async function updateCustomPrice(){
+  if(saleMode!=="custom") return;
+  const holePrice = holePriceOf(await fetchSettings());
+  const color = rows.find(r=>r.category==="kolor" && r.name===$s("sCColor").value);
+  const cut = rows.find(r=>r.category==="kroj" && r.name===$s("sCCut").value);
+  const holes = Math.max(0, parseInt($s("sCHoles").value,10) || 0);
+  const total = (Number(color?.price_extra)||0) + (Number(cut?.price_extra)||0) + holes*holePrice;
+  $s("sCInfo").textContent = `Dopłaty: kolor ${fmtPLN(color?.price_extra||0)} + krój ${fmtPLN(cut?.price_extra||0)} + ${holes} × ${fmtPLN(holePrice)} (cena dziury z Ustawień) = ${fmtPLN(total)}`;
+  if(!salePriceTouched) $s("sPrice").value = total;
 }
-$s("sCode").oninput = onCustomCodeInput;
+["sCColor","sCCut","sCHoles"].forEach(id=> $s(id).addEventListener("input", updateCustomPrice));
+$s("sCColor").addEventListener("change", updateCustomPrice); $s("sCCut").addEventListener("change", updateCustomPrice);
 
 $s("saleSaveBtn").onclick = async ()=>{
   showSaleErr("");
@@ -535,19 +528,21 @@ $s("saleSaveBtn").onclick = async ()=>{
     const v = variantsOf(p)[+$s("sColor").value];
     row = { product_id:p.id, product_name:p.name, size:$s("sSize").value, color_name:v.name||v.color, color_hex:v.color, quantity:qty, unit_price:price, sold_at };
   } else {
-    if(!$s("sCode").value.trim() || !decodedSale) return showSaleErr("Wklej poprawny kod konfiguracji z generatora Customów.");
     const colorOpt = $s("sCColor").selectedOptions[0];
-    if(!$s("sCColor").value || !$s("sCCut").value) return showSaleErr("Wybierz kolor i krój.");
+    if(!$s("sCColor").value || !$s("sCCut").value) return showSaleErr("Wybierz kolor i krój (dodaj je w zakładce Customy, jeśli lista jest pusta).");
+    const holes = Number($s("sCHoles").value);
+    if(!Number.isInteger(holes) || holes < 0 || holes > 50) return showSaleErr("Liczba dziur musi być liczbą całkowitą od 0 do 50.");
     row = { kind:"custom", product_id:null, product_name:CUSTOM_LABEL, size:$s("sCSize").value, color_name:$s("sCColor").value,
-      color_hex: decodedSale.cfg.kolor?.hex || colorOpt?.dataset.hex || null, cut:$s("sCCut").value,
-      hole_count: decodedSale.cfg.holes.length, hole_price: decodedSale.holePrice, custom_code: $s("sCode").value.trim(),
+      color_hex: colorOpt?.dataset.hex || null, cut:$s("sCCut").value,
+      hole_count: holes, hole_price: holePriceOf(await fetchSettings()),
       quantity:qty, unit_price:price, sold_at };
   }
   const ok = await addSale(row);
   if(ok){
     flash("saleMsg", `Zapisano: ${qty} × ${row.product_name} (${row.size}, ${row.color_name}) — ${fmtPLN(qty*price)}`, "ok");
     $s("sQty").value = 1;
-    if(saleMode==="custom"){ $s("sCode").value=""; $s("sCodeInfo").innerHTML=""; decodedSale=null; }
+    salePriceTouched = false;
+    if(saleMode==="custom"){ $s("sCHoles").value = 0; updateCustomPrice(); }
     $s("sQty").focus();
   }
 };
@@ -843,41 +838,6 @@ document.getElementById("baseImgFile").onchange = async (e)=>{
     flash("customyMsg","Zapisano zdjęcie bazowe","ok");
   }
   e.target.value = "";
-};
-
-// ---- Dekoder konfiguracji (kod z generatora Customów) ----
-document.getElementById("decodeBtn").onclick = async ()=>{
-  const code = document.getElementById("decoderInput").value.trim();
-  const result = document.getElementById("decoderResult");
-  const bad = m=>{ result.innerHTML = `<p style="color:#ff6b6b;font-size:13px;">${escapeTxt(m)}</p>`; };
-  if(!code) return bad("Wklej kod.");
-  let cfg; try{ cfg = decodeConfig(code); }catch(e){ return bad(e.message); }
-  const data = await fetchSettings();
-  const bg = data?.customy_base_image, curPrice = holePriceOf(data);
-  const holePrice = cfg.holePrice ?? curPrice;
-  const total = cfg.total ?? ((cfg.kolor?.extra||0)+(cfg.kroj?.extra||0)+cfg.holes.length*holePrice);
-  const dots = cfg.holes.map(h=>{
-    const w = h.w ?? (h.r*2), hh = h.h ?? (h.r*2); // starsze kody miały tylko promień r
-    return `<div style="position:absolute;left:${Number(h.x)}%;top:${Number(h.y)}%;width:${Number(w)}%;height:${Number(hh)}%;
-    transform:translate(-50%,-50%);border-radius:50%;background:rgba(255,59,59,.45);border:2px solid #ff3b3b;"></div>`;
-  }).join("");
-  const row = (k,v)=>`<div class="summary-row"><span>${k}</span><b>${v}</b></div>`;
-  result.innerHTML = `
-    <div style="position:relative;width:100%;max-width:280px;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:var(--surface2);margin-bottom:10px;">
-      ${bg?`<img src="${escapeAttr(bg)}" alt="" style="width:100%;height:100%;object-fit:cover;">`:""}
-      ${dots}
-    </div>
-    <div class="decoded-summary">
-      ${row("Kolor", cfg.kolor ? `<span class="mini-dot" style="background:${HEX_RE.test(cfg.kolor.hex||"")?cfg.kolor.hex:"#555"}"></span>${escapeTxt(cfg.kolor.name)}` : "—")}
-      ${row("Krój", escapeTxt(cfg.kroj?.name || "—"))}
-      ${row("Rozmiar", escapeTxt(cfg.rozmiar || "—"))}
-      ${row("Dziury", `${cfg.holes.length} × ${fmtPLN(holePrice)} = ${fmtPLN(cfg.holes.length*holePrice)}`)}
-      ${row("Dopłaty łącznie", fmtPLN(total))}
-    </div>
-    ${holePrice!==curPrice?`<p style="font-size:12px;color:var(--muted);">Cena dziury w kodzie (${fmtPLN(holePrice)}) różni się od obecnej (${fmtPLN(curPrice)}) — klient zamawiał po poprzedniej cenie.</p>`:""}
-    ${cfg.legacy?'<p style="font-size:12px;color:#ffd166;">Starszy kod: zawiera tylko dziury.</p>':""}
-    <p style="font-size:12px;color:var(--muted);">Współrzędne (% od lewej/góry):</p>
-    <pre style="font-size:11px;color:var(--muted);background:var(--surface2);padding:10px;border-radius:8px;overflow-x:auto;">${escapeTxt(JSON.stringify(cfg.holes,null,1))}</pre>`;
 };
 
 // ---- Style dziur (zdjęcia przetarć w edytorze Customów) ----

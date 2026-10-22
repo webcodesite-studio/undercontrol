@@ -146,7 +146,6 @@ create table sales (
   cut text,
   hole_count int,
   hole_price numeric,
-  custom_code text,
   created_at timestamptz default now()
 );
 alter table sales enable row level security;

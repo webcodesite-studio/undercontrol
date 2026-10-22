@@ -214,13 +214,6 @@ input[type=text], input[type=email]{width:100%;padding:13px 14px;background:var(
   .bottombar{left:44%;}
 }
 
-/* kopiowanie kodu konfiguracji (Customy) */
-.copy-code-row{margin:28px 0 24px;text-align:center;}
-.copy-code-btn{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:10px 14px;min-height:40px;}
-.copy-code-btn:hover,.copy-code-btn:focus-visible{color:var(--text);}
-.copy-code-msg{display:block;font-size:12px;color:var(--accent);min-height:16px;}
-#copyCodeFallback{width:100%;margin-top:8px;font-family:monospace;font-size:12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;}
-
 /* formularz kontaktowy */
 .contact-form{max-width:520px;margin-top:36px;display:flex;flex-direction:column;gap:10px;}
 .contact-form h2{font-size:18px;margin:0 0 4px;}
