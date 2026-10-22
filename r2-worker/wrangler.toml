@@ -1,0 +1,11 @@
+name = "pants-r2-upload"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[[r2_buckets]]
+binding = "PANTS_BUCKET"
+bucket_name = "pants-images"
+
+[vars]
+PUBLIC_BASE_URL = "https://TWOJ-PUBLICZNY-URL-R2.pl"
+# UPLOAD_SECRET ustaw jako sekret (nie tutaj!), patrz README w tym folderze

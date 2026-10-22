@@ -40,6 +40,11 @@ Otwórz `config.js` i wklej:
 - Dane z bazy wstawiane przez `textContent`/`escapeText`, nie `innerHTML`.
 - W formularzu jest ukryte pole-pułapka (honeypot) przeciw botom.
 
+## Tryb testowy panelu (bez Supabase)
+Dopóki w `config.js` zostaje placeholder `TWOJ-PROJEKT.supabase.co`, logowanie w `/admin.html` przyjmie login **admin** / hasło **admin** — dane trzymane są wtedy lokalnie w przeglądarce (localStorage), nic nie zapisuje się do żadnej bazy.
+
+**To wyłącza się samo** — jak tylko wpiszesz prawdziwy `SUPABASE_URL` w `config.js`, logowanie `admin/admin` przestanie działać i panel będzie wymagał prawdziwego konta z Supabase. Nie musisz nic usuwać ręcznie przed wdrożeniem na produkcję — wystarczy uzupełnić klucze.
+
 ## Co dodać później
 - Zdjęcia/warstwy PNG zamiast SVG-placeholdera w `index.html` (`#pantsSvg`) — podmień na `<img>` z warstwami nakładanymi przez CSS, albo osobny SVG per kolor.
 - Upload zdjęć opcji przez Supabase Storage (bucket publiczny do odczytu, zapis tylko zalogowani) — rozszerzenie `admin.js`.

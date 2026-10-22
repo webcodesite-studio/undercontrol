@@ -4,3 +4,7 @@ const SUPABASE_ANON_KEY = "TWOJ_ANON_KEY"; // to jest publiczny klucz, chroniony
 
 const FORMSPREE_ENDPOINT = "https://formspree.io/f/TWOJ_ID"; // z formspree.io
 const IG_NICK = "twoj_nick"; // bez @
+
+// Upload zdjęć do Cloudflare R2 (przez Worker) — instrukcja w folderze r2-worker/README.md
+const R2_UPLOAD_URL = "https://TWOJ-WORKER.workers.dev";
+const R2_UPLOAD_SECRET = "TWOJ_SEKRET_Z_WRANGLERA";

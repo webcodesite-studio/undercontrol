@@ -7,12 +7,6 @@ const FALLBACK = {
     {name:"Écru", hex:"#cfc6ae", price_extra:10, available:true},
     {name:"Bordo", hex:"#5c1f24", price_extra:10, available:false},
   ],
-  dziury: [
-    {name:"Brak", price_extra:0, available:true},
-    {name:"Kolana", price_extra:15, available:true},
-    {name:"Mocne zniszczenie", price_extra:25, available:true},
-    {name:"Rozcięcia", price_extra:20, available:false},
-  ],
   kroj: [
     {name:"Baggy", price_extra:0, available:true},
     {name:"Straight", price_extra:0, available:true},
@@ -21,22 +15,45 @@ const FALLBACK = {
 };
 const SIZES = ["XS","S","M","L","XL","XXL"];
 
+// style dziur (zdjęcia przetarć) — gdy brak w Supabase, pokazujemy 2 kształty zastępcze
+const FALLBACK_HOLE_STYLES = [
+  { name:"Owalna", image_url:null, fallbackShape:"fallback-oval" },
+  { name:"Poszarpana", image_url:null, fallbackShape:"fallback-jagged" },
+];
+let HOLE_STYLES = FALLBACK_HOLE_STYLES;
+async function loadHoleStyles(){
+  try{
+    const { data, error } = await sbClient.from("hole_styles").select("*").order("sort_order",{ascending:true,nullsFirst:true});
+    if(error || !data || !data.length) throw error || new Error("empty");
+    HOLE_STYLES = data;
+  }catch(e){ HOLE_STYLES = FALLBACK_HOLE_STYLES; }
+}
+
 let OPTIONS = null;
+const FALLBACK_SETTINGS = {
+  offer_enabled: true,
+  offer_text: "Wysyłka gratis przy zamówieniu do niedzieli!",
+  contact_text: "Masz pytania? Napisz do nas na Instagramie."
+};
 let SETTINGS = { offer_enabled:false, offer_text:"", contact_text:"" };
-let state = { step:0, kolor:null, dziury:null, kroj:null, rozmiar:null };
+const PRICE_PER_HOLE = 15;
+const MAX_HOLES = 6;
+let state = { step:0, kolor:null, kroj:null, rozmiar:null, holes:[] };
+let selectedHoleIdx = null;
 const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function loadOptions(){
   try{
     const { data, error } = await sbClient.from("options").select("*").order("category").order("sort_order",{ascending:true, nullsFirst:true});
     if(error || !data || !data.length) throw error || new Error("empty");
-    OPTIONS = { kolor:[], dziury:[], kroj:[] };
+    OPTIONS = { kolor:[], kroj:[] };
     data.forEach(o=>{ if(OPTIONS[o.category]) OPTIONS[o.category].push(o); });
   }catch(e){
     console.warn("Supabase niedostępny, używam domyślnych opcji", e);
     OPTIONS = FALLBACK;
   }
   await loadSettings();
+  await loadHoleStyles();
   render();
 }
 
@@ -45,7 +62,10 @@ async function loadSettings(){
     const { data, error } = await sbClient.from("site_settings").select("*").eq("id",1).single();
     if(error || !data) throw error || new Error("empty");
     SETTINGS = data;
-  }catch(e){ console.warn("Brak ustawień strony, pomijam baner/kontakt", e); }
+  }catch(e){
+    console.warn("Supabase niedostępny, używam domyślnego banera/kontaktu", e);
+    SETTINGS = FALLBACK_SETTINGS;
+  }
 
   const bar = document.getElementById("offerBar");
   if(SETTINGS.offer_enabled && SETTINGS.offer_text){
@@ -55,6 +75,10 @@ async function loadSettings(){
     bar.style.display = "none";
   }
   document.getElementById("contactBlock").textContent = SETTINGS.contact_text || "";
+  if(SETTINGS.customy_base_image){
+    const img = document.getElementById("holeBaseImg");
+    img.src = SETTINGS.customy_base_image; img.style.display = "block";
+  }
 }
 document.getElementById("offerClose").onclick = ()=> document.getElementById("offerBar").style.display="none";
 
@@ -72,14 +96,7 @@ function render(){
     wrap.append(sw,label); cw.appendChild(wrap);
   });
 
-  // dziury
-  const ht = document.getElementById("holesTiles"); ht.innerHTML="";
-  OPTIONS.dziury.forEach(o=>{
-    const t = el("div","tile"+(o.available?"":" unavailable"));
-    t.innerHTML = `<div class="tile-icon"></div>${escapeText(o.name)}${o.price_extra?`<br><small>+${o.price_extra}zł</small>`:""}${o.available?"":'<span class="soon">wkrótce</span>'}`;
-    if(o.available) t.onclick=()=>{ state.dziury=o; refreshTileSelection(ht,t); updatePreview(); updateBar(); };
-    ht.appendChild(t);
-  });
+  initHoleDesigner();
 
   // krój
   const ft = document.getElementById("fitTiles"); ft.innerHTML="";
@@ -98,7 +115,10 @@ function render(){
     sb.appendChild(b);
   });
 
-  document.getElementById("igLink").href = `https://ig.me/m/${IG_NICK}`;
+  document.getElementById("igLink").href = `https://ig.me/m/${window.SELLER_IG || IG_NICK}`;
+  document.addEventListener("siteSettingsReady", ()=>{
+    document.getElementById("igLink").href = `https://ig.me/m/${window.SELLER_IG}`;
+  });
   showStep(0);
   updateBar();
 }
@@ -118,10 +138,120 @@ function updatePreview(){
   const fill = document.getElementById("pantsFill");
   if(state.kolor) fill.setAttribute("fill", state.kolor.hex || "#555");
   const holesLayer = document.getElementById("holesLayer");
-  holesLayer.innerHTML = "";
-  if(state.dziury && state.dziury.name !== "Brak"){
-    holesLayer.innerHTML = `<circle cx="95" cy="150" r="9" fill="#00000055"/><circle cx="118" cy="165" r="6" fill="#00000055"/>`;
+  holesLayer.innerHTML = state.holes.map(h=>
+    `<ellipse cx="${h.x*2}" cy="${h.y*2.6}" rx="${h.w}" ry="${h.h*1.3}" fill="#00000055"/>`
+  ).join("");
+}
+
+// ---- edytor dziur: zdjęcia przetarć, kilka naraz, niezależna szer./wys., przeciąganie ----
+function initHoleDesigner(){
+  const box = document.getElementById("holeDesigner");
+  box.dataset.init = "1"; // render() może się odpalić ponownie po doładowaniu stylów — bezpieczne, listenery podpinamy raz niżej
+
+  function holeStyleMarkup(h){
+    const style = HOLE_STYLES[h.styleId] || HOLE_STYLES[0];
+    if(style?.image_url) return `<img src="${style.image_url}" alt="">`;
+    return "";
   }
+  function markerClass(h, i){
+    const style = HOLE_STYLES[h.styleId] || HOLE_STYLES[0];
+    const shapeClass = style?.image_url ? "" : " "+(style?.fallbackShape || "fallback-oval");
+    return "hole-marker"+shapeClass+(i===selectedHoleIdx?" selected":"");
+  }
+
+  function renderStylePicker(){
+    const picker = document.getElementById("holeStylePicker");
+    if(selectedHoleIdx===null){ picker.style.display = "none"; return; }
+    picker.style.display = "flex";
+    const current = state.holes[selectedHoleIdx];
+    picker.innerHTML = HOLE_STYLES.map((s,i)=>{
+      const thumb = s.image_url ? `<img src="${s.image_url}" alt="${escapeText(s.name)}">` :
+        `<div style="width:100%;height:100%;background:var(--surface2);" class="${s.fallbackShape}"></div>`;
+      return `<div class="hole-style-thumb${i===current.styleId?" selected":""}" data-i="${i}" title="${escapeText(s.name)}">${thumb}</div>`;
+    }).join("");
+    picker.querySelectorAll(".hole-style-thumb").forEach(t=>{
+      t.onclick = ()=>{ if(selectedHoleIdx===null) return; state.holes[selectedHoleIdx].styleId = +t.dataset.i; renderHoles(); };
+    });
+  }
+
+  function renderHoles(){
+    box.querySelectorAll(".hole-marker").forEach(m=>m.remove());
+    state.holes.forEach((h,i)=>{
+      const m = document.createElement("div"); m.className = markerClass(h,i);
+      m.style.left = h.x+"%"; m.style.top = h.y+"%"; m.style.width = h.w+"%"; m.style.height = h.h+"%";
+      m.dataset.i = i;
+      m.innerHTML = holeStyleMarkup(h);
+      box.appendChild(m);
+    });
+    const label = document.getElementById("holeCountLabel");
+    label.textContent = state.holes.length ? `${state.holes.length} dziur(y) — +${state.holes.length*PRICE_PER_HOLE} zł` : "Brak dziur — czyste spodnie.";
+    document.getElementById("removeHoleBtn").disabled = selectedHoleIdx===null;
+    document.getElementById("holeSizeRow").style.display = selectedHoleIdx===null ? "none" : "flex";
+    if(selectedHoleIdx!==null){
+      document.getElementById("holeWidthSlider").value = state.holes[selectedHoleIdx].w;
+      document.getElementById("holeHeightSlider").value = state.holes[selectedHoleIdx].h;
+    }
+    renderStylePicker();
+    updateBar(); updatePreview();
+  }
+  holeDesignerRender = renderHoles; // dostępne globalnie, gdyby style dociągnęły się po pierwszym renderze
+
+  function addHole(x,y){
+    if(state.holes.length >= MAX_HOLES){ alert("Maksymalnie "+MAX_HOLES+" dziur."); return; }
+    state.holes.push({ x: Math.max(5,Math.min(95,x)), y: Math.max(5,Math.min(95,y)), w:12, h:8, styleId:0 });
+    selectedHoleIdx = state.holes.length-1;
+    renderHoles();
+  }
+
+  if(!box.dataset.listeners){
+    box.dataset.listeners = "1";
+    let dragging = null;
+    box.addEventListener("pointerdown", (e)=>{
+      const rect = box.getBoundingClientRect();
+      const x = (e.clientX-rect.left)/rect.width*100, y = (e.clientY-rect.top)/rect.height*100;
+      const marker = e.target.closest(".hole-marker");
+      if(marker){
+        selectedHoleIdx = +marker.dataset.i; dragging = selectedHoleIdx; box.setPointerCapture(e.pointerId);
+      } else {
+        addHole(x,y); return;
+      }
+      renderHoles();
+    });
+    box.addEventListener("pointermove", (e)=>{
+      if(dragging===null) return;
+      const rect = box.getBoundingClientRect();
+      const x = (e.clientX-rect.left)/rect.width*100, y = (e.clientY-rect.top)/rect.height*100;
+      state.holes[dragging].x = Math.max(5,Math.min(95,x));
+      state.holes[dragging].y = Math.max(5,Math.min(95,y));
+      renderHoles();
+    });
+    box.addEventListener("pointerup", ()=>{ dragging = null; });
+    box.addEventListener("pointercancel", ()=>{ dragging = null; });
+
+    document.getElementById("addHoleBtn").onclick = ()=> addHole(50,50);
+    document.getElementById("removeHoleBtn").onclick = ()=>{
+      if(selectedHoleIdx===null) return;
+      state.holes.splice(selectedHoleIdx,1); selectedHoleIdx=null; renderHoles();
+    };
+    document.getElementById("holeWidthSlider").oninput = (e)=>{
+      if(selectedHoleIdx===null) return;
+      state.holes[selectedHoleIdx].w = +e.target.value; renderHoles();
+    };
+    document.getElementById("holeHeightSlider").oninput = (e)=>{
+      if(selectedHoleIdx===null) return;
+      state.holes[selectedHoleIdx].h = +e.target.value; renderHoles();
+    };
+  }
+  renderHoles();
+}
+let holeDesignerRender = null;
+
+function encodeHoles(holes){
+  const compact = holes.map(h=>({
+    x:Math.round(h.x), y:Math.round(h.y), w:Math.round(h.w), h:Math.round(h.h),
+    styleId: h.styleId, styleName: HOLE_STYLES[h.styleId]?.name || "?"
+  }));
+  return btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
 }
 
 const STEPS = [0,1,2,3];
@@ -140,14 +270,16 @@ function showStep(i){
 
 function canAdvance(){
   if(state.step===0) return !!state.kolor;
-  if(state.step===1) return !!state.dziury;
   if(state.step===2) return !!state.kroj && !!state.rozmiar;
   return true;
 }
 
+function totalPrice(){
+  return (state.kolor?.price_extra||0)+(state.kroj?.price_extra||0)+(state.holes.length*PRICE_PER_HOLE);
+}
+
 function updateBar(){
-  const total = (state.kolor?.price_extra||0)+(state.dziury?.price_extra||0)+(state.kroj?.price_extra||0);
-  document.getElementById("priceTag").textContent = total + " zł";
+  document.getElementById("priceTag").textContent = totalPrice() + " zł";
   document.getElementById("nextBtn").disabled = !canAdvance();
 }
 
@@ -155,7 +287,7 @@ function buildSummary(){
   const box = document.getElementById("summaryList");
   const rows = [
     ["Kolor", state.kolor?.name],
-    ["Dziury", state.dziury?.name],
+    ["Dziury", state.holes.length ? `${state.holes.length} szt.` : "Brak"],
     ["Krój", state.kroj?.name],
     ["Rozmiar", state.rozmiar],
   ];
@@ -169,15 +301,23 @@ document.getElementById("nextBtn").onclick=()=>{
   submitOrder();
 };
 
+function validIG(nick){ return /^@?[a-zA-Z0-9](?:[a-zA-Z0-9._]{0,28}[a-zA-Z0-9])?$/.test(nick); }
+
 async function submitOrder(){
   if(document.getElementById("hpField").value){ return; } // honeypot — bot złapany, nic nie rób
   const ig = document.getElementById("igInput").value.trim();
   const mail = document.getElementById("emailInput").value.trim();
-  if(!ig){ document.getElementById("igInput").focus(); return; }
-  const total = (state.kolor?.price_extra||0)+(state.dziury?.price_extra||0)+(state.kroj?.price_extra||0);
+  if(!ig || !validIG(ig)){
+    document.getElementById("igInput").focus();
+    document.getElementById("igInput").style.borderColor = "#ff6b6b";
+    return;
+  }
+  document.getElementById("igInput").style.borderColor = "";
   const payload = {
-    kolor: state.kolor?.name, dziury: state.dziury?.name, kroj: state.kroj?.name,
-    rozmiar: state.rozmiar, cena_dodatkowa: total+" zł", instagram: ig, email: mail || "(brak)"
+    kolor: state.kolor?.name, kroj: state.kroj?.name, rozmiar: state.rozmiar,
+    dziury_liczba: state.holes.length,
+    dziury_kod: state.holes.length ? encodeHoles(state.holes) : "(brak dziur)",
+    cena_dodatkowa: totalPrice()+" zł", instagram: ig, email: mail || "(brak)"
   };
   document.getElementById("nextBtn").disabled = true;
   document.getElementById("nextBtn").textContent = "Wysyłanie...";
