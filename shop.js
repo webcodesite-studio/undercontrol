@@ -29,7 +29,7 @@ async function loadShop(){
   try{
     const { data, error } = await sb.from("products").select("*").order("category").order("sort_order",{ascending:true,nullsFirst:true});
     if(error || !data || !data.length) throw error || new Error("empty");
-    products = data;
+    products = data.filter(p=>!p.archived);
   }catch(e){ console.warn("Supabase niedostępny, pokazuję przykładowe produkty", e); }
 
   const byCat = {};
@@ -42,9 +42,11 @@ async function loadShop(){
       const card = document.createElement(p.available ? "a" : "div");
       card.className = "product-card"+(p.available?"":" unavailable");
       if(p.available) card.href = "produkt.html?id="+encodeURIComponent(p.id);
-      const colors = (p.colors && p.colors.length ? p.colors : ["#555555"]).map(safeColor);
+      const variants = Array.isArray(p.variants) && p.variants.length ? p.variants : null;
+      const colors = (variants ? variants.map(v=>v.color) : (p.colors && p.colors.length ? p.colors : ["#555555"])).map(safeColor);
+      const firstImage = variants ? (variants.find(v=>v.images && v.images.length)?.images[0]) : (p.images && p.images[0]);
       const dots = colors.length>1 ? `<div style="display:flex;gap:4px;margin-top:6px;">${colors.map(c=>`<span style="width:10px;height:10px;border-radius:50%;background:${c};border:1px solid var(--border);display:inline-block;"></span>`).join("")}</div>` : "";
-      const thumb = (p.images && p.images[0]) ? `<img src="${escapeAttr(p.images[0])}" alt="${escapeAttr(p.name)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">` : pantsThumb(colors[0]);
+      const thumb = firstImage ? `<img src="${escapeAttr(firstImage)}" alt="${escapeAttr(p.name)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">` : pantsThumb(colors[0]);
       card.innerHTML = `<div class="product-thumb">${thumb}${p.available?"":'<span class="soon-badge">wkrótce</span>'}</div>
         <div class="product-info"><div class="pname">${escapeTxt(p.name)}</div><div class="pprice">${p.price} zł</div>${dots}</div>`;
       grid.appendChild(card);

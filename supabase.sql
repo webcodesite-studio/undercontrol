@@ -60,6 +60,9 @@ create table products (
   images jsonb default '[]',          -- lista URL-i zdjęć z R2, jedno na kolor/wariant
   description text,
   size_chart text, -- wymiary, jedna linia na rozmiar, np. "S: pas 76cm, długość 100cm"
+  variants jsonb default '[]', -- [{"name":"Czarny","color":"#1a1a1a","images":[...]}] — zdjęcia przypisane do koloru
+  archived boolean default false,
+  archived_at timestamptz,
   available boolean default true,
   sort_order int default 0,
   created_at timestamptz default now()
@@ -126,3 +129,20 @@ insert into options (category,name,hex,price_extra,available,sort_order) values
 ('kroj','Baggy',null,0,true,1),
 ('kroj','Straight',null,0,true,2),
 ('kroj','Slim',null,0,true,3);
+
+-- 9) Sprzedaż (statystyki stałych ofert; tylko zalogowany admin)
+create table sales (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid references products(id) on delete set null,
+  product_name text not null,
+  size text,
+  color_name text,
+  color_hex text,
+  quantity int not null check (quantity > 0),
+  unit_price numeric not null check (unit_price >= 0),
+  sold_at date not null default current_date,
+  created_at timestamptz default now()
+);
+alter table sales enable row level security;
+create policy "Authenticated all sales" on sales for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
