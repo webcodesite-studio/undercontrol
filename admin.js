@@ -6,6 +6,8 @@ let rows = [];
 // Gdy wpiszesz prawdziwe dane Supabase, ten tryb sam się wyłącza — logowanie admin/admin
 // przestanie działać i panel będzie wymagał prawdziwego konta.
 const SUPABASE_CONFIGURED = !SUPABASE_URL.includes("TWOJ-PROJEKT");
+// admin/admin działa tylko lokalnie (localhost / plik) — nigdy na opublikowanej domenie
+const IS_LOCAL_HOST = ["localhost","127.0.0.1","[::1]",""].includes(location.hostname);
 let localDevMode = false;
 const LOCAL_FALLBACK_OPTIONS = [
   {id:"l1",category:"kolor",name:"Czarny",hex:"#1a1a1a",price_extra:0,available:true,sort_order:1},
@@ -43,7 +45,7 @@ document.getElementById("loginBtn").onclick = async ()=>{
   const email = document.getElementById("loginEmail").value.trim();
   const password = document.getElementById("loginPass").value;
 
-  if(!SUPABASE_CONFIGURED && email === "admin" && password === "admin"){
+  if(!SUPABASE_CONFIGURED && IS_LOCAL_HOST && email === "admin" && password === "admin"){
     localDevMode = true;
     showPanel();
     return;
