@@ -35,11 +35,18 @@ async function loadProduct(){
 }
 
 function render(p){
-  const colors = (p.colors && p.colors.length ? p.colors : ["#555555"]).map(safeColor);
-  const slides = (p.images && p.images.length)
-    ? p.images.map(url=>`<div class="gallery-slide"><img src="${escAttr(url)}" alt="${escAttr(p.name)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;"></div>`)
-    : colors.map(c=>`<div class="gallery-slide">${pantsSvg(c)}</div>`);
-  const slideCount = slides.length;
+  // warianty: każdy kolor ma własne zdjęcia; produkty bez `variants` używają starych pól colors + images
+  const variants = (Array.isArray(p.variants) && p.variants.length)
+    ? p.variants.map(v=>({ name:v.name||"", color:safeColor(v.color), images:Array.isArray(v.images)?v.images:[] }))
+    : (p.colors && p.colors.length ? p.colors : ["#555555"]).map((c,i)=>({ name:"", color:safeColor(c), images: i===0 ? (p.images||[]) : [] }));
+  const legacyImages = !(Array.isArray(p.variants) && p.variants.length) && p.images && p.images.length;
+  const colors = variants.map(v=>v.color);
+  const slidesFor = v => legacyImages
+    ? (p.images||[]).map(url=>`<div class="gallery-slide"><img src="${escAttr(url)}" alt="${escAttr(p.name)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;"></div>`)
+    : (v.images.length
+        ? v.images.map(url=>`<div class="gallery-slide"><img src="${escAttr(url)}" alt="${escAttr(p.name+(v.name?" – "+v.name:""))}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;"></div>`)
+        : [`<div class="gallery-slide">${pantsSvg(v.color)}</div>`]);
+  const slides = slidesFor(variants[0]);
   const sizeRows = (p.size_chart||"").split("\n").filter(Boolean).map(line=>{
     const [size, ...rest] = line.split(":");
     return `<tr><td>${escTxt(size.trim())}</td><td>${escTxt(rest.join(":").trim())}</td></tr>`;
@@ -49,19 +56,17 @@ function render(p){
   document.getElementById("productPage").innerHTML = `
     <div class="gallery">
       <button class="gallery-arrow prev" id="galPrev">‹</button>
-      <div class="gallery-track" id="galTrack">
-        ${slides.join("")}
-      </div>
+      <div class="gallery-track" id="galTrack">${slides.join("")}</div>
       <button class="gallery-arrow next" id="galNext">›</button>
-      <div class="gallery-dots" id="galDots">${slides.map((_,i)=>`<span class="gdot${i===0?" active":""}"></span>`).join("")}</div>
+      <div class="gallery-dots" id="galDots"></div>
     </div>
     <div class="product-detail">
       <h1>${escTxt(p.name)}</h1>
       <div class="pdprice">${p.price} zł</div>
       <p class="pddesc">${escTxt(p.description||"")}</p>
 
-      ${(!(p.images&&p.images.length) && colors.length>1)?`<div class="pd-section-label">Kolor</div>
-      <div class="pd-colors" id="pdColors">${colors.map((c,i)=>`<div class="pd-color${i===0?" active":""}" style="background:${c}" data-i="${i}"></div>`).join("")}</div>`:""}
+      ${variants.length>1?`<div class="pd-section-label">Kolor: <span id="pdColorName">${escTxt(variants[0].name)}</span></div>
+      <div class="pd-colors" id="pdColors" role="radiogroup" aria-label="Kolor">${variants.map((v,i)=>`<button type="button" role="radio" aria-checked="${i===0}" aria-label="${escAttr(v.name||v.color)}" title="${escAttr(v.name||v.color)}" class="pd-color${i===0?" active":""}" style="background:${v.color}" data-i="${i}"></button>`).join("")}</div>`:""}
 
       ${sizeRows?`<div class="pd-section-label">Wymiary</div>
       <table class="size-table"><tbody>${sizeRows}</tbody></table>`:""}
@@ -76,25 +81,40 @@ function render(p){
       </div>
     </div>`;
 
-  // galeria
+  // galeria — pokazuje tylko zdjęcia aktualnie wybranego koloru
   const track = document.getElementById("galTrack");
-  const dots = [...document.querySelectorAll("#galDots .gdot")];
+  const dotsBox = document.getElementById("galDots");
+  const prevBtn = document.getElementById("galPrev"), nextBtn = document.getElementById("galNext");
+  let dots = [];
   function setActiveDot(){
-    const i = Math.round(track.scrollLeft / track.clientWidth);
+    const i = Math.round(track.scrollLeft / (track.clientWidth || 1));
     dots.forEach((d,idx)=> d.classList.toggle("active", idx===i));
   }
+  function showSlides(list){
+    track.innerHTML = list.join("");
+    track.scrollTo({left:0});
+    dotsBox.innerHTML = list.map((_,i)=>`<span class="gdot${i===0?" active":""}"></span>`).join("");
+    dots = [...dotsBox.querySelectorAll(".gdot")];
+    const multi = list.length > 1;
+    prevBtn.style.display = nextBtn.style.display = multi ? "" : "none";
+    dotsBox.style.display = multi ? "" : "none";
+  }
   track.addEventListener("scroll", ()=> requestAnimationFrame(setActiveDot));
-  document.getElementById("galPrev").onclick = ()=> track.scrollBy({left:-track.clientWidth, behavior:"smooth"});
-  document.getElementById("galNext").onclick = ()=> track.scrollBy({left:track.clientWidth, behavior:"smooth"});
-  if(slideCount<2){ document.getElementById("galPrev").style.display="none"; document.getElementById("galNext").style.display="none"; }
+  prevBtn.onclick = ()=> track.scrollBy({left:-track.clientWidth, behavior:"smooth"});
+  nextBtn.onclick = ()=> track.scrollBy({left:track.clientWidth, behavior:"smooth"});
+  showSlides(slides);
 
   // kolory
-  let selectedColor = colors[0];
+  let selectedColor = variants[0].name || colors[0];
   document.querySelectorAll("#pdColors .pd-color").forEach(el=>{
     el.onclick = ()=>{
-      document.querySelectorAll("#pdColors .pd-color").forEach(x=>x.classList.remove("active"));
-      el.classList.add("active"); selectedColor = colors[+el.dataset.i];
-      track.scrollTo({left: track.clientWidth*(+el.dataset.i), behavior:"smooth"});
+      document.querySelectorAll("#pdColors .pd-color").forEach(x=>{ x.classList.remove("active"); x.setAttribute("aria-checked","false"); });
+      el.classList.add("active"); el.setAttribute("aria-checked","true");
+      const v = variants[+el.dataset.i];
+      selectedColor = v.name || v.color;
+      document.getElementById("pdColorName").textContent = v.name;
+      if(!legacyImages) showSlides(slidesFor(v));
+      else track.scrollTo({left:0, behavior:"smooth"});
     };
   });
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>Panel — opcje spodni</title>
+<title>Panel sklepu</title>
 <link rel="stylesheet" href="style.css">
 <style>
   .wrap{max-width:720px;margin:0 auto;padding:24px 16px 80px;}
@@ -30,7 +30,7 @@
   .del-btn{background:none;color:#ff6b6b;font-size:12px;margin-top:4px;}
   .edit-btn{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;flex:0 0 auto;}
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end;justify-content:center;}
-  .modal-box{background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;}
+  .modal-box{background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto;}
   @media(min-width:640px){.modal-overlay{align-items:center;}.modal-box{border-radius:16px;}}
   .modal-box label{font-size:12px;color:var(--muted);display:block;margin:12px 0 4px;}
   .modal-box input[type=text],.modal-box input[type=number],.modal-box input[type=date],.modal-box textarea{
@@ -38,11 +38,29 @@
   .color-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
   .color-row input[type=color]{width:42px;height:38px;border:none;border-radius:8px;background:none;padding:0;}
   .color-row button{background:none;color:#ff6b6b;font-size:18px;padding:4px 10px;}
-  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+  .modal-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;}
   .modal-actions .btn{padding:12px;}
   .tabs button{flex:1;padding:10px;border-radius:10px;background:var(--surface);color:var(--muted);border:1px solid var(--border);}
   .tabs button.active{background:var(--surface2);color:var(--text);border-color:var(--accent);}
   .add-btn{width:100%;padding:14px;border-radius:10px;background:var(--surface2);color:var(--text);margin-top:8px;border:1px dashed var(--border);}
+  .modal-box select,.card select{width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;}
+  .modal-box .hint{color:var(--muted);font-weight:400;}
+  .form-err{background:#3a1515;color:#ff9a9a;border:1px solid #6b2525;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:8px;}
+  .variant{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px;}
+  .variant .vName{flex:1;}
+  .size-head,.size-row{display:grid;grid-template-columns:90px 1fr 1fr 36px;gap:8px;align-items:center;}
+  .size-head{font-size:11px;color:var(--muted);margin:4px 0;}
+  .size-row{margin-bottom:8px;}
+  .size-row input,.size-row select{padding:9px 8px;}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+  .stat-n{font-size:26px;font-weight:600;color:var(--accent);}
+  .stat-l{font-size:12px;color:var(--muted);margin-top:4px;}
+  .stat-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .stat-table th{text-align:left;color:var(--muted);font-weight:400;font-size:11px;padding:6px 4px;}
+  .stat-table td{padding:8px 4px;border-top:1px solid var(--border);}
+  .stat-table th:not(:first-child),.stat-table td:not(:first-child){text-align:right;white-space:nowrap;}
+  .mini-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;border:1px solid var(--border);}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
   .logout{color:var(--muted);font-size:13px;background:none;}
 </style>
@@ -59,7 +77,7 @@
 
 <div id="panel" class="wrap" style="display:none;">
   <div class="topbar">
-    <h2>Opcje spodni</h2>
+    <h2>Panel sklepu</h2>
     <button class="logout" id="logoutBtn">Wyloguj</button>
   </div>
   <div id="devBadge" style="display:none;background:#4a3a00;color:#ffd166;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:16px;">
@@ -68,6 +86,7 @@
   <div class="tabs">
     <button data-cat="produkty" class="active">Stałe oferty</button>
     <button data-cat="customy">Customy</button>
+    <button data-cat="sprzedaz">Sprzedaż</button>
     <button data-cat="kampanie">Kampanie</button>
     <button data-cat="wyglad">Wygląd</button>
     <button data-cat="dekoder">Dekoder</button>
@@ -120,8 +139,18 @@
   </div>
 
   <div id="productsPanel" style="display:block;">
+    <button class="add-btn" id="toggleArchiveBtn" style="margin:0 0 12px;padding:10px;font-size:13px;">Pokaż archiwum</button>
     <div id="productsList"></div>
     <button class="add-btn" id="addProductBtn">+ Dodaj produkt</button>
+  </div>
+
+  <div id="salesPanel" style="display:none;">
+    <p class="cat-label">Podsumowanie sprzedaży stałych ofert</p>
+    <div id="salesSummary" class="stats"></div>
+    <button class="add-btn" id="addSaleBtn" style="margin:0 0 20px;">+ Zarejestruj sprzedaż</button>
+    <p class="cat-label">Według produktu</p><div id="salesByProduct"></div>
+    <p class="cat-label" style="margin-top:20px;">Według rozmiaru i koloru</p><div id="salesByVariant"></div>
+    <p class="cat-label" style="margin-top:20px;">Ostatnie wpisy</p><div id="salesRecent"></div>
   </div>
 
   <div id="campaignsPanel" style="display:none;">

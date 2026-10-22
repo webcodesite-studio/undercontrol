@@ -52,6 +52,29 @@ Otwórz `config.js` i wklej:
 - Test lokalny: `python3 -m http.server 8765` w folderze projektu → `http://localhost:8765/admin.html`.
 - Produkcja: wpisz prawdziwe `SUPABASE_URL` i `SUPABASE_ANON_KEY` w `config.js`, utwórz konto admina w Supabase i wpisz jego e-mail w `ADMIN_EMAILS` w `r2-worker/wrangler.toml` (patrz `r2-worker/README.md`).
 
+## Panel sklepu — stałe oferty, sprzedaż, kroje (wersja z migracją 002)
+
+**Wymagana migracja bazy (jednorazowo, dla istniejącego projektu Supabase):** SQL Editor → wklej `migrations/002_variants_archive_sales.sql` → Run. Tylko *dodaje* kolumny `variants`, `archived`, `archived_at` do `products` i tabelę `sales`; istniejące produkty i dane zostają nietknięte (można uruchomić ponownie). Nowa instalacja: wystarczy `supabase.sql`, zawiera już wszystko. Bez migracji sklep działa jak dotąd, ale zapis produktu z nowego panelu i zakładka Sprzedaż zgłoszą błąd z przypomnieniem o migracji.
+
+**Stałe oferty**
+- **Kolory i zdjęcia:** każdy kolor ma własną nazwę i własną galerię (dowolna liczba zdjęć, można wybrać kilka plików naraz). Na stronie produktu klient widzi tylko zdjęcia wybranego koloru; zmiana koloru podmienia galerię. Kolor bez zdjęć pokazuje placeholder w tym kolorze.
+- **Rozmiary:** lista XS–XXL (bez duplikatów), pas (opcjonalnie) i długość spodni wpisywane ręcznie, domyślnie w **cm** (można przełączyć na cale). Panel zapisuje je w polu `size_chart` w dotychczasowym formacie, więc strona klienta działa bez zmian. Starsze wymiary, których nie da się rozpoznać, trafiają do pola „Inne wymiary” i nie giną.
+- **Krój/kategoria** wybierany z listy; **Duplikuj** tworzy kopię produktu (jako niedostępną) do edycji, np. w innym kolorze.
+- **Archiwizuj** (zamiast usuwania po zakończeniu oferty): produkt znika ze sklepu, ale zostaje w panelu pod „Pokaż archiwum”, skąd można go **Przywrócić**. Usunięcie na stałe nadal jest dostępne; statystyki sprzedaży są wtedy zachowane.
+- Produkty sprzed zmiany (pola `colors` + `images`) działają dalej; po pierwszym zapisaniu w nowym panelu dotychczasowe zdjęcia trafiają do pierwszego koloru — przypisz je do właściwych kolorów.
+- Walidacja z komunikatami w oknie edycji (nazwa, cena ≥ 0, unikalne nazwy kolorów, długość > 0, brak powtórzonych rozmiarów).
+
+**Sprzedaż** (zakładka „Sprzedaż”)
+- Zamówienia dochodzą mailem, więc sprzedaż rejestrujesz ręcznie przyciskiem **Zarejestruj sprzedaż** (produkt, rozmiar, kolor, liczba sztuk, cena, data). Cena domyślnie = cena produktu, ale można ją zmienić (np. promocja).
+- Podsumowanie: łączna liczba sztuk i przychód w zł, tabele według produktu oraz według produktu·rozmiaru·koloru, lista ostatnich wpisów z możliwością usunięcia pomyłki.
+- Tabela `sales` jest dostępna tylko dla zalogowanego admina (RLS) i trzyma kopię nazwy produktu, więc archiwizacja/usunięcie produktu nie psuje statystyk.
+
+**Customy:** przy dodawaniu kroju wybierasz go z listy (Baggy, Straight, Slim, Skinny, Wide leg, Loose, Tapered, Bootcut, Relaxed, Cargo) — bez wpisywania; już dodane kroje się nie powtarzają. Poprawiono też ładowanie opcji po wejściu w zakładkę Customy.
+
+**Zmiana nazwy:** „Opcje spodni” → „Panel sklepu”.
+
+**Tryb testowy admin/admin:** wszystko powyżej działa lokalnie (dane w `localStorage`); upload do R2 nadal wymaga prawdziwego logowania Supabase, ale w trybie testowym przy kolorze jest przycisk „Dodaj zdjęcie z adresu URL”, żeby można było sprawdzić galerie.
+
 ## Co dodać później
 - Zdjęcia/warstwy PNG zamiast SVG-placeholdera w `index.html` (`#pantsSvg`) — podmień na `<img>` z warstwami nakładanymi przez CSS, albo osobny SVG per kolor.
 - Upload zdjęć opcji przez Supabase Storage (bucket publiczny do odczytu, zapis tylko zalogowani) — rozszerzenie `admin.js`.

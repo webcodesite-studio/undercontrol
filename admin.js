@@ -71,6 +71,8 @@ mainTabs.forEach(b=>{
     const isCustomy = currentCat === "customy";
     const isWyglad = currentCat === "wyglad";
     const isDecoder = currentCat === "dekoder";
+    const isSales = currentCat === "sprzedaz";
+    document.getElementById("salesPanel").style.display = isSales ? "block" : "none";
     document.getElementById("customySubtabs").style.display = isCustomy ? "block" : "none";
     document.getElementById("settingsPanel").style.display = isSettings ? "block" : "none";
     document.getElementById("productsPanel").style.display = isProducts ? "block" : "none";
@@ -80,7 +82,8 @@ mainTabs.forEach(b=>{
     if(isSettings) loadSettings();
     else if(isProducts) loadProducts();
     else if(isCampaigns) loadCampaigns();
-    else if(isCustomy){ renderList(); loadBaseImage(); }
+    else if(isSales) loadSales();
+    else if(isCustomy){ loadRows(); loadBaseImage(); }
   };
 });
 document.querySelectorAll('.tabs button[data-subcat]').forEach(b=>{
@@ -132,7 +135,43 @@ async function uploadToR2(file){
 }
 
 // ---- Produkty (oferta na stronie głównej) ----
+const SIZE_LIST = ["XS","S","M","L","XL","XXL"];
+const CUT_LIST = ["Baggy","Straight","Slim","Skinny","Wide leg","Loose","Tapered","Bootcut","Relaxed","Cargo"];
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+const fmtPLN = n => new Intl.NumberFormat("pl-PL",{style:"currency",currency:"PLN"}).format(n||0);
+
+// Warianty kolorystyczne: [{name, color, images:[url,...]}].
+// Produkty sprzed tej zmiany (tylko colors + images) są traktowane jako warianty bez przypisanych zdjęć:
+// zdjęcia ze starego pola `images` trafiają do pierwszego wariantu, żeby nic nie zginęło.
+function variantsOf(p){
+  if(Array.isArray(p?.variants) && p.variants.length) return p.variants.map(v=>({name:v.name||"", color:v.color||"#555555", images:[...(v.images||[])]}));
+  const colors = p?.colors?.length ? p.colors : ["#555555"];
+  return colors.map((c,i)=>({name:"", color:c, images: i===0 ? [...(p?.images||[])] : []}));
+}
+
+// size_chart (tekst, format czytany przez stronę klienta) <-> wiersze edytora
+function parseSizeChart(text){
+  const rows = [], extra = [];
+  let unit = "cm";
+  (text||"").split("\n").map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    const [sizeRaw, ...rest] = line.split(":");
+    const size = sizeRaw.trim().toUpperCase(), tail = rest.join(":");
+    const w = tail.match(/pas\s*([\d.,]+)\s*(cm|in)?/i), l = tail.match(/d[łl]ugo[śs][ćc]\s*([\d.,]+)\s*(cm|in)?/i);
+    if(SIZE_LIST.includes(size) && l && !rows.some(r=>r.size===size)){
+      const u = (l[2]||w?.[2]||"").toLowerCase(); if(u==="in") unit = "in";
+      rows.push({size, waist: w ? w[1].replace(",",".") : "", length: l[1].replace(",",".")});
+    } else extra.push(line);
+  });
+  return { rows, extra, unit };
+}
+function buildSizeChart(rows, unit, extra){
+  const sorted = [...rows].sort((a,b)=>SIZE_LIST.indexOf(a.size)-SIZE_LIST.indexOf(b.size));
+  const lines = sorted.map(r=>`${r.size}: ${r.waist!==""?`pas ${r.waist}${unit}, `:""}długość ${r.length}${unit}`);
+  return [...lines, ...extra].join("\n");
+}
+
 let products = [];
+let showArchived = false;
 async function loadProducts(){
   if(localDevMode){ products = JSON.parse(localStorage.getItem("localProducts")||"[]"); renderProducts(); return; }
   const { data, error } = await sb.from("products").select("*").order("category").order("sort_order",{ascending:true,nullsFirst:true});
@@ -141,82 +180,178 @@ async function loadProducts(){
 }
 function renderProducts(){
   const list = document.getElementById("productsList"); list.innerHTML="";
-  products.forEach(p=>{
-    const colors = p.colors && p.colors.length ? p.colors : ["#555555"];
+  const archivedCount = products.filter(p=>p.archived).length;
+  const toggle = document.getElementById("toggleArchiveBtn");
+  toggle.textContent = showArchived ? "Pokaż aktywne produkty" : `Pokaż archiwum (${archivedCount})`;
+  products.filter(p=>!!p.archived === showArchived).forEach(p=>{
+    const vs = variantsOf(p);
     const card = document.createElement("div"); card.className="card";
-    const dot = document.createElement("div"); dot.className="dot"; dot.style.background = colors[0];
+    const dot = document.createElement("div"); dot.className="dot"; dot.style.background = vs[0].color;
     const meta = document.createElement("div"); meta.className="meta";
     meta.innerHTML = `<div style="font-size:15px;">${escapeTxt(p.name)}</div>
-      <div style="font-size:12px;color:var(--muted);">${escapeTxt(p.category)} · ${p.price} zł${colors.length>1?` · ${colors.length} kolory`:""}</div>`;
-    const sw = document.createElement("div"); sw.className="switch"+(p.available?" on":"");
-    sw.onclick=()=>{ sw.classList.toggle("on"); updateProduct(p.id,{available:sw.classList.contains("on")}); };
+      <div style="font-size:12px;color:var(--muted);">${escapeTxt(p.category)} · ${p.price} zł${vs.length>1?` · ${vs.length} kolory`:""}${p.archived?" · archiwum":""}</div>`;
     const editBtn = document.createElement("button"); editBtn.className="edit-btn"; editBtn.textContent="Edytuj";
     editBtn.onclick = ()=> openProductModal(p.id);
-    card.append(dot, meta, sw, editBtn); list.appendChild(card);
+    if(p.archived){
+      const restoreBtn = document.createElement("button"); restoreBtn.className="edit-btn"; restoreBtn.textContent="Przywróć";
+      restoreBtn.onclick = ()=> updateProduct(p.id,{archived:false, archived_at:null});
+      card.append(dot, meta, restoreBtn, editBtn);
+    } else {
+      const sw = document.createElement("div"); sw.className="switch"+(p.available?" on":"");
+      sw.title = "Dostępny w sklepie";
+      sw.onclick=()=>{ sw.classList.toggle("on"); updateProduct(p.id,{available:sw.classList.contains("on")}); };
+      card.append(dot, meta, sw, editBtn);
+    }
+    list.appendChild(card);
   });
+  if(!list.children.length) list.innerHTML = `<p style="color:var(--muted);font-size:13px;">${showArchived?"Archiwum jest puste.":"Brak produktów — dodaj pierwszy."}</p>`;
 }
-function colorRowHtml(hex){ return `<div class="color-row"><input type="color" value="${hex}"><button type="button" class="removeColorRow">✕</button></div>`; }
-function bindColorRemovers(){
-  document.querySelectorAll(".removeColorRow").forEach(b=>{
-    b.onclick = ()=>{ if(document.querySelectorAll("#colorRows .color-row").length>1) b.closest(".color-row").remove(); };
-  });
+document.getElementById("toggleArchiveBtn").onclick = ()=>{ showArchived = !showArchived; renderProducts(); };
+
+function imgRowHtml(url){ return `<div class="color-row img-row"><img src="${escapeAttr(url)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:8px;"><span style="font-size:11px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeTxt(url.split("/").pop())}</span><button type="button" class="removeRow" aria-label="Usuń zdjęcie">✕</button></div>`; }
+function variantHtml(v){
+  return `<div class="variant">
+    <div class="color-row">
+      <input type="color" class="vColor" value="${escapeAttr(v.color)}" aria-label="Kolor">
+      <input type="text" class="vName" value="${escapeAttr(v.name)}" placeholder="Nazwa koloru, np. Czarny" maxlength="40">
+      <button type="button" class="removeVariant" aria-label="Usuń kolor">✕</button>
+    </div>
+    <div class="vImgs">${v.images.map(imgRowHtml).join("")}</div>
+    <button type="button" class="add-btn vAddImg" style="padding:8px;margin-top:0;">+ Dodaj zdjęcia tego koloru</button>
+    ${localDevMode?'<button type="button" class="add-btn vAddUrl" style="padding:6px;margin-top:4px;font-size:12px;">+ Dodaj zdjęcie z adresu URL (tryb testowy)</button>':""}
+  </div>`;
 }
-function imgRowHtml(url){ return `<div class="color-row"><img src="${escapeAttr(url)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;"><span style="font-size:11px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeTxt(url.split("/").pop())}</span><button type="button" class="removeImgRow">✕</button></div>`; }
-function bindImgRemovers(){
-  document.querySelectorAll(".removeImgRow").forEach(b=>{ b.onclick = ()=> b.closest(".color-row").remove(); });
+function sizeRowHtml(r){
+  return `<div class="color-row size-row">
+    <select class="sSize" aria-label="Rozmiar">${SIZE_LIST.map(s=>`<option${s===r.size?" selected":""}>${s}</option>`).join("")}</select>
+    <input type="number" class="sWaist" min="1" step="0.5" value="${escapeAttr(r.waist)}" placeholder="Pas" aria-label="Pas">
+    <input type="number" class="sLength" min="1" step="0.5" value="${escapeAttr(r.length)}" placeholder="Długość" aria-label="Długość spodni">
+    <button type="button" class="removeRow" aria-label="Usuń rozmiar">✕</button>
+  </div>`;
 }
 function openProductModal(id){
   const p = id ? products.find(x=>x.id===id) : null;
-  const colors = p?.colors?.length ? p.colors : ["#555555"];
-  const images = p?.images || [];
+  const variants = variantsOf(p);
+  const parsed = parseSizeChart(p?.size_chart);
+  const sizeRows = parsed.rows.sort((a,b)=>SIZE_LIST.indexOf(a.size)-SIZE_LIST.indexOf(b.size));
+  const cat = p?.category || "Baggy";
+  const cats = CUT_LIST.includes(cat) ? CUT_LIST : [cat, ...CUT_LIST];
   openModal(`
     <h3>${p?"Edytuj produkt":"Nowy produkt"}</h3>
-    <label>Nazwa</label><input type="text" id="mName" value="${escapeAttr(p?.name)}" placeholder="np. Baggy Black">
-    <label>Kategoria</label><input type="text" id="mCategory" value="${escapeAttr(p?.category || "Baggy")}" placeholder="Baggy / Straight / Slim">
-    <label>Cena (zł)</label><input type="number" id="mPrice" value="${p?.price ?? 249}">
-    <label>Zdjęcia (galeria produktu)</label>
-    <div id="imgRows">${images.map(imgRowHtml).join("")}</div>
-    <input type="file" id="imgFileInput" accept="image/*" style="display:none;">
-    <button type="button" class="add-btn" id="addImgRow" style="padding:8px;">+ Wgraj zdjęcie</button>
-    <label style="margin-top:16px;">Kolory (gdy brak zdjęcia — placeholder)</label>
-    <div id="colorRows">${colors.map(colorRowHtml).join("")}</div>
-    <button type="button" class="add-btn" id="addColorRow" style="padding:8px;">+ Dodaj kolor</button>
-    <label>Opis</label><textarea id="mDescription" rows="2" placeholder="Krótki opis produktu">${escapeTxt(p?.description)}</textarea>
-    <label>Wymiary (jedna linia na rozmiar)</label>
-    <textarea id="mSizeChart" rows="4" placeholder="S: pas 72cm, długość 102cm&#10;M: pas 78cm, długość 104cm">${escapeTxt(p?.size_chart)}</textarea>
+    <div id="mErr" class="form-err" role="alert" style="display:none;"></div>
+    <label for="mName">Nazwa</label><input type="text" id="mName" value="${escapeAttr(p?.name)}" placeholder="np. Baggy Black" maxlength="80">
+    <label for="mCategory">Krój / kategoria</label>
+    <select id="mCategory">${cats.map(c=>`<option${c===cat?" selected":""}>${escapeTxt(c)}</option>`).join("")}</select>
+    <label for="mPrice">Cena (zł)</label><input type="number" id="mPrice" min="0" step="1" value="${p?.price ?? 249}">
+    <label>Kolory i zdjęcia <span class="hint">— klient zobaczy tylko zdjęcia wybranego koloru</span></label>
+    <div id="variantRows">${variants.map(variantHtml).join("")}</div>
+    <button type="button" class="add-btn" id="addVariant" style="padding:8px;">+ Dodaj kolor</button>
+    <label for="mDescription">Opis</label><textarea id="mDescription" rows="2" placeholder="Krótki opis produktu">${escapeTxt(p?.description)}</textarea>
+    <label>Rozmiary i wymiary <span class="hint">— jednostka:</span>
+      <select id="mUnit" style="width:auto;display:inline-block;padding:4px 8px;"><option value="cm"${parsed.unit==="cm"?" selected":""}>cm</option><option value="in"${parsed.unit==="in"?" selected":""}>cale</option></select></label>
+    <div class="size-head"><span>Rozmiar</span><span>Pas</span><span>Długość</span><span></span></div>
+    <div id="sizeRows">${sizeRows.map(sizeRowHtml).join("")}</div>
+    <button type="button" class="add-btn" id="addSize" style="padding:8px;">+ Dodaj rozmiar</button>
+    ${parsed.extra.length?`<label for="mExtra">Inne wymiary (tekst z poprzedniej wersji — zachowane)</label><textarea id="mExtra" rows="2">${escapeTxt(parsed.extra.join("\n"))}</textarea>`:""}
+    <input type="file" id="imgFileInput" accept="image/*" multiple style="display:none;">
     <div class="modal-actions">
+      ${p?`<button class="btn btn-ghost" id="modalDuplicate">Duplikuj</button>`:""}
+      ${p?`<button class="btn btn-ghost" id="modalArchive">${p.archived?"Przywróć":"Archiwizuj"}</button>`:""}
       ${p?'<button class="btn btn-ghost" id="modalDelete" style="color:#ff6b6b;">Usuń</button>':""}
       <button class="btn btn-ghost" id="modalCancel">Anuluj</button>
       <button class="btn btn-primary" id="modalSave">Zapisz</button>
     </div>`);
-  document.getElementById("addColorRow").onclick = ()=>{
-    document.getElementById("colorRows").insertAdjacentHTML("beforeend", colorRowHtml("#555555"));
-    bindColorRemovers();
+
+  const box = document.getElementById("modalBox");
+  let uploadTarget = null;
+  box.onclick = async (e)=>{
+    const t = e.target;
+    if(t.classList.contains("removeRow")){ t.closest(".color-row").remove(); }
+    else if(t.classList.contains("removeVariant")){
+      if(box.querySelectorAll(".variant").length>1) t.closest(".variant").remove();
+      else showErr("Produkt musi mieć co najmniej jeden kolor.");
+    }
+    else if(t.classList.contains("vAddImg")){ uploadTarget = t.closest(".variant"); document.getElementById("imgFileInput").click(); }
+    else if(t.classList.contains("vAddUrl")){
+      const url = prompt("Adres URL zdjęcia (https://...):");
+      if(url && /^https?:\/\//i.test(url.trim())) t.closest(".variant").querySelector(".vImgs").insertAdjacentHTML("beforeend", imgRowHtml(url.trim()));
+      else if(url) showErr("Adres zdjęcia musi zaczynać się od http:// lub https://");
+    }
   };
-  bindColorRemovers();
-  document.getElementById("addImgRow").onclick = ()=> document.getElementById("imgFileInput").click();
+  function showErr(msg){ const e=document.getElementById("mErr"); e.textContent=msg; e.style.display="block"; e.scrollIntoView({block:"nearest"}); }
+  document.getElementById("addVariant").onclick = ()=>{
+    document.getElementById("variantRows").insertAdjacentHTML("beforeend", variantHtml({name:"",color:"#555555",images:[]}));
+  };
+  document.getElementById("addSize").onclick = ()=>{
+    const used = [...box.querySelectorAll(".sSize")].map(s=>s.value);
+    const next = SIZE_LIST.find(s=>!used.includes(s));
+    if(!next){ showErr("Dodano już wszystkie dostępne rozmiary (XS–XXL)."); return; }
+    document.getElementById("sizeRows").insertAdjacentHTML("beforeend", sizeRowHtml({size:next,waist:"",length:""}));
+  };
   document.getElementById("imgFileInput").onchange = async (e)=>{
-    const file = e.target.files[0]; if(!file) return;
-    document.getElementById("addImgRow").textContent = "Wgrywanie...";
-    const url = await uploadToR2(file);
-    document.getElementById("addImgRow").textContent = "+ Wgraj zdjęcie";
-    if(url){ document.getElementById("imgRows").insertAdjacentHTML("beforeend", imgRowHtml(url)); bindImgRemovers(); }
-    e.target.value = "";
+    const files = [...e.target.files]; e.target.value = "";
+    if(!files.length || !uploadTarget) return;
+    const btn = uploadTarget.querySelector(".vAddImg"), target = uploadTarget;
+    for(let i=0;i<files.length;i++){
+      btn.textContent = `Wgrywanie ${i+1}/${files.length}...`;
+      const url = await uploadToR2(files[i]);
+      if(url) target.querySelector(".vImgs").insertAdjacentHTML("beforeend", imgRowHtml(url));
+    }
+    btn.textContent = "+ Dodaj zdjęcia tego koloru";
   };
-  bindImgRemovers();
   document.getElementById("modalCancel").onclick = closeModal;
-  if(p) document.getElementById("modalDelete").onclick = ()=>{ closeModal(); deleteProduct(p.id); };
+  if(p){
+    document.getElementById("modalDelete").onclick = ()=>{ closeModal(); deleteProduct(p.id); };
+    document.getElementById("modalArchive").onclick = ()=>{
+      closeModal();
+      updateProduct(p.id, p.archived ? {archived:false, archived_at:null} : {archived:true, archived_at:new Date().toISOString(), available:false});
+    };
+    document.getElementById("modalDuplicate").onclick = ()=>{
+      closeModal();
+      const { id:_i, created_at:_c, archived:_a, archived_at:_aa, ...copy } = p;
+      createProduct({...copy, name: p.name+" (kopia)", available:false});
+    };
+  }
   document.getElementById("modalSave").onclick = ()=>{
     const name = document.getElementById("mName").value.trim();
-    if(!name){ alert("Podaj nazwę produktu"); return; }
+    if(!name) return showErr("Podaj nazwę produktu.");
+    const price = Number(document.getElementById("mPrice").value);
+    if(!Number.isFinite(price) || price < 0) return showErr("Cena musi być liczbą nie mniejszą niż 0.");
+
+    const vs = [...box.querySelectorAll(".variant")].map(el=>({
+      name: el.querySelector(".vName").value.trim(),
+      color: el.querySelector(".vColor").value,
+      images: [...el.querySelectorAll(".vImgs img")].map(i=>i.getAttribute("src")),
+    }));
+    if(!vs.length) return showErr("Dodaj co najmniej jeden kolor.");
+    if(vs.length>1 && vs.some(v=>!v.name)) return showErr("Gdy produkt ma kilka kolorów, każdy kolor musi mieć nazwę (np. Czarny).");
+    const names = vs.map(v=>(v.name||v.color).toLowerCase());
+    if(new Set(names).size !== names.length) return showErr("Dwa kolory mają tę samą nazwę — nazwy muszą się różnić.");
+    if(vs.some(v=>!HEX_RE.test(v.color))) return showErr("Nieprawidłowy kolor.");
+
+    const unit = document.getElementById("mUnit").value;
+    const sizes = [...box.querySelectorAll(".size-row")].map(r=>({
+      size: r.querySelector(".sSize").value,
+      waist: r.querySelector(".sWaist").value.trim(),
+      length: r.querySelector(".sLength").value.trim(),
+    }));
+    for(const s of sizes){
+      if(s.length==="" || !(Number(s.length)>0)) return showErr(`Rozmiar ${s.size}: podaj długość spodni (liczba większa od 0, w ${unit==="cm"?"cm":"calach"}).`);
+      if(s.waist!=="" && !(Number(s.waist)>0)) return showErr(`Rozmiar ${s.size}: pas musi być liczbą większą od 0 (albo zostaw puste).`);
+    }
+    const dup = sizes.map(s=>s.size).find((s,i,a)=>a.indexOf(s)!==i);
+    if(dup) return showErr(`Rozmiar ${dup} został dodany dwa razy.`);
+    const extra = (document.getElementById("mExtra")?.value || "").split("\n").map(l=>l.trim()).filter(Boolean);
+
     const row = {
-      name,
-      category: document.getElementById("mCategory").value.trim() || "Baggy",
-      price: Number(document.getElementById("mPrice").value) || 0,
-      images: [...document.querySelectorAll("#imgRows img")].map(i=>i.src),
-      colors: [...document.querySelectorAll("#colorRows input[type=color]")].map(i=>i.value),
+      name, price,
+      category: document.getElementById("mCategory").value,
+      variants: vs,
+      // pola zgodne wstecz (starsze wersje strony czytają colors/images):
+      colors: vs.map(v=>v.color),
+      images: vs.flatMap(v=>v.images),
       description: document.getElementById("mDescription").value.trim(),
-      size_chart: document.getElementById("mSizeChart").value.trim(),
+      size_chart: buildSizeChart(sizes, unit, extra),
       available: p?.available ?? true,
     };
     closeModal();
@@ -231,15 +366,119 @@ async function createProduct(row){
 async function updateProduct(id, patch){
   if(localDevMode){ products = products.map(p=>p.id===id?{...p,...patch}:p); localStorage.setItem("localProducts",JSON.stringify(products)); renderProducts(); return; }
   const { error } = await sb.from("products").update(patch).eq("id", id);
-  if(error) alert("Błąd zapisu: "+error.message); else loadProducts();
+  if(error) alert("Błąd zapisu: "+error.message+(/variants|archived/.test(error.message)?"\nUruchom migrację SQL z README (migrations/002_*.sql).":"")); else loadProducts();
 }
 async function deleteProduct(id){
-  if(!confirm("Usunąć produkt?")) return;
+  if(!confirm("Usunąć produkt na stałe? Statystyki sprzedaży zostaną zachowane. Jeśli oferta tylko się skończyła, lepiej użyj „Archiwizuj”.")) return;
   if(localDevMode){ products=products.filter(p=>p.id!==id); localStorage.setItem("localProducts",JSON.stringify(products)); renderProducts(); return; }
   const { error } = await sb.from("products").delete().eq("id", id);
   if(error) alert("Błąd: "+error.message); else loadProducts();
 }
 document.getElementById("addProductBtn").onclick = ()=> openProductModal(null);
+
+// ---- Sprzedaż (statystyki stałych ofert) ----
+// Zamówienia przychodzą mailem (Formspree), więc sprzedaż rejestrujesz tu ręcznie po potwierdzeniu zamówienia.
+let sales = [];
+async function loadSales(){
+  if(localDevMode){ sales = JSON.parse(localStorage.getItem("localSales")||"[]"); }
+  else {
+    const { data, error } = await sb.from("sales").select("*").order("sold_at",{ascending:false}).order("created_at",{ascending:false});
+    if(error){ alert("Błąd: "+error.message+(/sales/.test(error.message)?"\nUruchom migrację SQL z README (migrations/002_*.sql).":"")); return; }
+    sales = data || [];
+  }
+  if(!products.length) await loadProductsSilently();
+  renderSales();
+}
+async function loadProductsSilently(){
+  if(localDevMode){ products = JSON.parse(localStorage.getItem("localProducts")||"[]"); return; }
+  const { data } = await sb.from("products").select("*"); products = data || [];
+}
+function renderSales(){
+  const items = sales.reduce((s,r)=>s+r.quantity,0);
+  const revenue = sales.reduce((s,r)=>s+r.quantity*Number(r.unit_price),0);
+  document.getElementById("salesSummary").innerHTML = `
+    <div class="stat"><div class="stat-n" id="statItems">${items}</div><div class="stat-l">sprzedanych sztuk</div></div>
+    <div class="stat"><div class="stat-n" id="statRevenue">${fmtPLN(revenue)}</div><div class="stat-l">łączny przychód</div></div>`;
+  const group = (keyFn, labelFn) => {
+    const m = new Map();
+    sales.forEach(r=>{ const k=keyFn(r); const e=m.get(k)||{label:labelFn(r),qty:0,sum:0}; e.qty+=r.quantity; e.sum+=r.quantity*Number(r.unit_price); m.set(k,e); });
+    return [...m.values()].sort((a,b)=>b.qty-a.qty);
+  };
+  const table = (rows, head) => rows.length
+    ? `<table class="stat-table"><thead><tr><th>${head}</th><th>Szt.</th><th>Przychód</th></tr></thead><tbody>${rows.map(e=>`<tr><td>${e.label}</td><td>${e.qty}</td><td>${fmtPLN(e.sum)}</td></tr>`).join("")}</tbody></table>`
+    : `<p style="color:var(--muted);font-size:13px;">Brak danych.</p>`;
+  document.getElementById("salesByProduct").innerHTML = table(group(r=>r.product_name, r=>escapeTxt(r.product_name)), "Produkt");
+  document.getElementById("salesByVariant").innerHTML = table(
+    group(r=>[r.product_name,r.size,r.color_name].join("|"),
+          r=>`${escapeTxt(r.product_name)} · ${escapeTxt(r.size||"-")} · <span class="mini-dot" style="background:${HEX_RE.test(r.color_hex||"")?r.color_hex:"#555"}"></span>${escapeTxt(r.color_name||"-")}`),
+    "Produkt · rozmiar · kolor");
+  const recent = document.getElementById("salesRecent"); recent.innerHTML = "";
+  sales.slice(0,30).forEach(r=>{
+    const card = document.createElement("div"); card.className="card";
+    const meta = document.createElement("div"); meta.className="meta";
+    meta.innerHTML = `<div style="font-size:14px;">${r.quantity} × ${escapeTxt(r.product_name)} (${escapeTxt(r.size||"-")}, ${escapeTxt(r.color_name||"-")})</div>
+      <div style="font-size:12px;color:var(--muted);">${escapeTxt(r.sold_at)} · ${fmtPLN(r.quantity*Number(r.unit_price))}</div>`;
+    const del = document.createElement("button"); del.className="edit-btn"; del.style.color="#ff6b6b"; del.textContent="Usuń";
+    del.onclick = ()=> deleteSale(r.id);
+    card.append(meta, del); recent.appendChild(card);
+  });
+  if(!sales.length) recent.innerHTML = '<p style="color:var(--muted);font-size:13px;">Nie zarejestrowano jeszcze sprzedaży.</p>';
+}
+function openSaleModal(){
+  const active = products.filter(p=>!p.archived), archived = products.filter(p=>p.archived);
+  if(!products.length){ alert("Najpierw dodaj produkt w zakładce „Stałe oferty”."); return; }
+  const opt = p=>`<option value="${escapeAttr(p.id)}">${escapeTxt(p.name)}</option>`;
+  openModal(`
+    <h3>Zarejestruj sprzedaż</h3>
+    <div id="sErr" class="form-err" role="alert" style="display:none;"></div>
+    <label for="sProduct">Produkt</label>
+    <select id="sProduct">${active.map(opt).join("")}${archived.length?`<optgroup label="Archiwum">${archived.map(opt).join("")}</optgroup>`:""}</select>
+    <label for="sSize">Rozmiar</label><select id="sSize"></select>
+    <label for="sColor">Kolor</label><select id="sColor"></select>
+    <label for="sQty">Liczba sztuk</label><input type="number" id="sQty" min="1" step="1" value="1">
+    <label for="sPrice">Cena za sztukę (zł)</label><input type="number" id="sPrice" min="0" step="0.01">
+    <label for="sDate">Data sprzedaży</label><input type="date" id="sDate" value="${todayStr()}">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modalCancel">Anuluj</button>
+      <button class="btn btn-primary" id="modalSave">Zapisz</button>
+    </div>`);
+  const sel = id=>products.find(x=>String(x.id)===String(id));
+  const fill = ()=>{
+    const p = sel(document.getElementById("sProduct").value);
+    const sizes = parseSizeChart(p.size_chart).rows.map(r=>r.size);
+    const sizeNames = sizes.length ? sizes : (p.size_chart||"").split("\n").map(l=>l.split(":")[0].trim()).filter(Boolean);
+    document.getElementById("sSize").innerHTML = sizeNames.length ? sizeNames.map(s=>`<option>${escapeTxt(s)}</option>`).join("") : "<option value=''>—</option>";
+    document.getElementById("sColor").innerHTML = variantsOf(p).map((v,i)=>`<option value="${i}">${escapeTxt(v.name||v.color)}</option>`).join("");
+    document.getElementById("sPrice").value = p.price;
+  };
+  document.getElementById("sProduct").onchange = fill; fill();
+  document.getElementById("modalCancel").onclick = closeModal;
+  document.getElementById("modalSave").onclick = ()=>{
+    const err = m=>{ const e=document.getElementById("sErr"); e.textContent=m; e.style.display="block"; };
+    const p = sel(document.getElementById("sProduct").value);
+    const qty = Number(document.getElementById("sQty").value), price = Number(document.getElementById("sPrice").value);
+    if(!Number.isInteger(qty) || qty < 1) return err("Liczba sztuk musi być liczbą całkowitą ≥ 1.");
+    if(!Number.isFinite(price) || price < 0) return err("Podaj poprawną cenę (zł).");
+    const sold_at = document.getElementById("sDate").value;
+    if(!sold_at) return err("Podaj datę sprzedaży.");
+    const v = variantsOf(p)[+document.getElementById("sColor").value];
+    const size = document.getElementById("sSize").value;
+    closeModal();
+    addSale({ product_id: p.id, product_name: p.name, size, color_name: v.name||v.color, color_hex: v.color, quantity: qty, unit_price: price, sold_at });
+  };
+}
+async function addSale(row){
+  if(localDevMode){ row.id="s"+Date.now()+Math.random().toString(36).slice(2,5); sales=[row,...sales]; localStorage.setItem("localSales",JSON.stringify(sales)); renderSales(); return; }
+  const { error } = await sb.from("sales").insert(row);
+  if(error) alert("Błąd zapisu sprzedaży: "+error.message); else loadSales();
+}
+async function deleteSale(id){
+  if(!confirm("Usunąć ten wpis sprzedaży?")) return;
+  if(localDevMode){ sales=sales.filter(s=>s.id!==id); localStorage.setItem("localSales",JSON.stringify(sales)); renderSales(); return; }
+  const { error } = await sb.from("sales").delete().eq("id", id);
+  if(error) alert("Błąd: "+error.message); else loadSales();
+}
+document.getElementById("addSaleBtn").onclick = openSaleModal;
 
 // ---- Kampanie (planowane banery z harmonogramem) ----
 let campaigns = [];
@@ -406,7 +645,38 @@ async function updateRow(id, patch){
   else loadRows();
 }
 
+function openCutModal(){
+  const used = rows.filter(r=>r.category==="kroj").map(r=>r.name.toLowerCase());
+  const free = CUT_LIST.filter(c=>!used.includes(c.toLowerCase()));
+  if(!free.length){ alert("Wszystkie dostępne kroje zostały już dodane."); return; }
+  openModal(`
+    <h3>Dodaj krój</h3>
+    <label for="cutSelect">Krój</label>
+    <select id="cutSelect">${free.map(c=>`<option>${escapeTxt(c)}</option>`).join("")}</select>
+    <label for="cutPrice">Dopłata (zł)</label><input type="number" id="cutPrice" min="0" step="1" value="0">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modalCancel">Anuluj</button>
+      <button class="btn btn-primary" id="modalSave">Dodaj</button>
+    </div>`);
+  document.getElementById("modalCancel").onclick = closeModal;
+  document.getElementById("modalSave").onclick = async ()=>{
+    const name = document.getElementById("cutSelect").value;
+    const price_extra = Math.max(0, Number(document.getElementById("cutPrice").value) || 0);
+    closeModal();
+    await insertOption({ category:"kroj", name, price_extra, available:true });
+  };
+}
+async function insertOption(row){
+  if(localDevMode){
+    row.id = "l"+Date.now(); row.sort_order = rows.length+1;
+    rows = [...rows, row]; saveLocalOptions(rows); renderList(); return;
+  }
+  const { error } = await sb.from("options").insert(row);
+  if(error) alert("Błąd dodawania: "+error.message);
+  else loadRows();
+}
 document.getElementById("addBtn").onclick = async ()=>{
+  if(currentOptionCat==="kroj"){ openCutModal(); return; }
   const name = prompt("Nazwa opcji:");
   if(!name) return;
   const row = { category: currentOptionCat, name, price_extra:0, available:true };
