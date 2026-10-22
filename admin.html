@@ -81,8 +81,6 @@
   .theme-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .theme-cards .theme-card{text-align:left;color:var(--text);font:inherit;min-width:0;margin-bottom:0;background:var(--surface);}
   @media(max-width:480px){.theme-cards{grid-template-columns:1fr;}}
-  .decoded-summary{margin:10px 0;}
-  .decoded-summary .summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
   .logout{color:var(--muted);font-size:13px;background:none;}
 </style>
@@ -110,7 +108,6 @@
     <button data-cat="customy">Customy</button>
     <button data-cat="sprzedaz">Sprzedaż</button>
     <button data-cat="kampanie">Kampanie</button>
-    <button data-cat="dekoder">Dekoder</button>
     <button data-cat="ustawienia">Ustawienia</button>
   </div>
 
@@ -147,14 +144,6 @@
     </div>
   </div>
 
-  <div id="decoderPanel" style="display:none;">
-    <p class="cat-label">Dekoder projektu dziur</p>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Wklej kod konfiguracji z zamówienia (pole "kod_konfiguracji" w mailu) — zobaczysz kolor, krój, rozmiar, dziury i ceny. Starsze kody (tylko dziury) też działają.</p>
-    <textarea id="decoderInput" rows="3" placeholder="Wklej kod tutaj..." style="width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:monospace;margin-bottom:10px;"></textarea>
-    <button class="btn btn-primary" style="width:100%;margin-bottom:20px;" id="decodeBtn">Pokaż projekt</button>
-    <div id="decoderResult"></div>
-  </div>
-
   <div id="settingsPanel" style="display:none;">
     <p class="cat-label">Nazwa sklepu (pasek nawigacji i stopka)</p>
     <input type="text" id="shopNameInput" placeholder="Nazwa sklepu">
@@ -168,7 +157,7 @@
     <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Obsługiwane: # nagłówki, **pogrubienie**, listy z "- ", akapity.</p>
     <p class="cat-label" style="margin-top:20px;">Cena jednej dziury w Customach (zł)</p>
     <input type="number" id="holePriceInput" min="0" max="10000" step="1" inputmode="decimal">
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Jedno ustawienie dla całej strony: generator, podgląd i cena końcowa, dekoder kodów oraz rejestr sprzedaży.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Jedno ustawienie dla całej strony: generator, podgląd i cena końcowa oraz rejestr sprzedaży.</p>
     <button class="btn btn-primary" style="width:100%;" id="saveSettingsBtn">Zapisz ustawienia</button>
     <div class="inline-msg" id="settingsMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
 
@@ -191,7 +180,7 @@
     <div class="add-form" id="saleForm">
       <div class="seg" id="saleModes">
         <button type="button" data-mode="offer" class="active">Oferta stała</button>
-        <button type="button" data-mode="custom">Custom (kod)</button>
+        <button type="button" data-mode="custom">Custom</button>
       </div>
       <div id="saleErr" class="form-err" role="alert" style="display:none;"></div>
       <div id="saleOffer">
@@ -202,14 +191,15 @@
         </div>
       </div>
       <div id="saleCustom" style="display:none;">
-        <label for="sCode">Kod konfiguracji z generatora Customów</label>
-        <textarea id="sCode" rows="3" placeholder="Wklej kod — dane uzupełnią się automatycznie" style="font-family:monospace;font-size:12px;"></textarea>
-        <div id="sCodeInfo" class="hint-line"></div>
         <div class="two-col">
           <div><label for="sCColor">Kolor</label><select id="sCColor"></select></div>
           <div><label for="sCCut">Krój</label><select id="sCCut"></select></div>
         </div>
-        <label for="sCSize">Rozmiar</label><select id="sCSize"></select>
+        <div class="two-col">
+          <div><label for="sCSize">Rozmiar</label><select id="sCSize"></select></div>
+          <div><label for="sCHoles">Liczba dziur</label><input type="number" id="sCHoles" min="0" max="50" step="1" value="0" inputmode="numeric"></div>
+        </div>
+        <div id="sCInfo" class="hint-line"></div>
       </div>
       <div class="two-col">
         <div><label for="sQty">Liczba sztuk</label><input type="number" id="sQty" min="1" step="1" value="1" inputmode="numeric"></div>

@@ -247,13 +247,6 @@ function initHoleDesigner(){
 }
 let holeDesignerRender = null;
 
-function currentConfigCode(){
-  return encodeConfig({
-    kolor: state.kolor, kroj: state.kroj, rozmiar: state.rozmiar, hole_price: HOLE_PRICE,
-    holes: state.holes.map(h=>({...h, styleName: HOLE_STYLES[h.styleId]?.name})),
-  });
-}
-
 const STEPS = [0,1,2,3];
 function showStep(i){
   state.step = i;
@@ -316,8 +309,9 @@ async function submitOrder(){
   const payload = {
     kolor: state.kolor?.name, kroj: state.kroj?.name, rozmiar: state.rozmiar,
     dziury_liczba: state.holes.length,
-    dziury_kod: state.holes.length ? currentConfigCode() : "(brak dziur)",
-    kod_konfiguracji: currentConfigCode(),
+    dziury_opis: state.holes.length
+      ? state.holes.map((h,i)=>`${i+1}) ${HOLE_STYLES[h.styleId]?.name||"dziura"}: x ${Math.round(h.x)}%, y ${Math.round(h.y)}%, ${Math.round(h.w)}×${Math.round(h.h)}%`).join("; ")
+      : "(brak dziur)",
     cena_dziury: HOLE_PRICE+" zł",
     cena_dodatkowa: totalPrice()+" zł", instagram: ig, email: mail || "(brak)"
   };
@@ -334,25 +328,5 @@ async function submitOrder(){
   document.getElementById("doneScreen").style.display="block";
   document.getElementById("bottombar").style.display="none";
 }
-
-// Kopiowanie kodu konfiguracji (klient lub admin) — działa też na telefonie / bez HTTPS (fallback)
-async function copyText(text){
-  try{ await navigator.clipboard.writeText(text); return true; }catch(e){}
-  const ta = document.createElement("textarea");
-  ta.value = text; ta.setAttribute("readonly",""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px;";
-  document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
-  let ok = false; try{ ok = document.execCommand("copy"); }catch(e){}
-  ta.remove(); return ok;
-}
-document.getElementById("copyCodeBtn").onclick = async ()=>{
-  const msg = document.getElementById("copyCodeMsg");
-  if(!state.kolor || !state.kroj || !state.rozmiar){
-    msg.textContent = "Wybierz kolor, krój i rozmiar, żeby skopiować pełny kod."; return;
-  }
-  const ok = await copyText(currentConfigCode());
-  msg.textContent = ok ? "Skopiowano kod ✓" : "Nie udało się skopiować — zaznacz kod ręcznie.";
-  if(!ok){ const f = document.getElementById("copyCodeFallback"); f.value = currentConfigCode(); f.style.display="block"; f.select(); }
-  setTimeout(()=>{ msg.textContent = ""; }, 3500);
-};
 
 loadOptions();
