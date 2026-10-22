@@ -7,4 +7,4 @@ const IG_NICK = "twoj_nick"; // bez @
 
 // Upload zdjęć do Cloudflare R2 (przez Worker) — instrukcja w folderze r2-worker/README.md
 const R2_UPLOAD_URL = "https://TWOJ-WORKER.workers.dev";
-const R2_UPLOAD_SECRET = "TWOJ_SEKRET_Z_WRANGLERA";
+// Upload jest autoryzowany tokenem sesji Supabase (logowanie do panelu) — nie ma już sekretu w kodzie strony.

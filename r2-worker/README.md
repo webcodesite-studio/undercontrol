@@ -14,12 +14,13 @@ wrangler login
 3. (Opcjonalnie, poleca Cloudflare) podepnij własną domenę/subdomenę do bucketu zamiast `r2.dev`.
 
 ## 3. Skonfiguruj Workera
-1. W `wrangler.toml` w tym folderze: zmień `bucket_name` jeśli nazwałeś bucket inaczej, i wklej publiczny URL z kroku 2 jako `PUBLIC_BASE_URL`.
-2. Ustaw sekret (hasło do uploadu, chroni endpoint przed obcymi):
-   ```
-   wrangler secret put UPLOAD_SECRET
-   ```
-   Wpisz dowolny długi losowy ciąg — to będzie Twoje hasło do uploadu zdjęć.
+W `wrangler.toml` ustaw:
+- `bucket_name` (jeśli bucket nazwałeś inaczej) i `PUBLIC_BASE_URL` (publiczny URL z kroku 2),
+- `SUPABASE_URL` i `SUPABASE_ANON_KEY` (Supabase → Project Settings → API; anon key jest publiczny),
+- `ALLOWED_ORIGINS` — adres Twojej strony, np. `https://twoj-sklep.vercel.app` (kilka po przecinku; do testów lokalnych dodaj `http://localhost:8765`),
+- `ADMIN_EMAILS` — e-mail(e) kont Supabase, które mogą wgrywać zdjęcia. **Bez tego upload jest zablokowany.**
+
+Nie ma już `UPLOAD_SECRET` — jeśli ustawiłeś go wcześniej: `wrangler secret delete UPLOAD_SECRET`.
 
 ## 4. Wdróż Workera
 ```
@@ -29,13 +30,18 @@ wrangler deploy
 Po wdrożeniu dostaniesz adres typu `https://pants-r2-upload.twoj-login.workers.dev` — to jest `R2_UPLOAD_URL`.
 
 ## 5. Uzupełnij config.js głównego projektu
-W pliku `config.js` (w folderze głównym, obok `index.html`) uzupełnij:
 ```js
 const R2_UPLOAD_URL = "https://pants-r2-upload.twoj-login.workers.dev";
-const R2_UPLOAD_SECRET = "ten sam sekret co w kroku 3";
 ```
+Żadnego sekretu w kodzie strony już nie ma. Panel wysyła token sesji Supabase (po zalogowaniu), a Worker sprawdza go w Supabase Auth.
 
-**Uwaga:** `R2_UPLOAD_SECRET` w `config.js` jest widoczny w kodzie strony — każdy z dostępem do panelu admina (czyli zalogowany właściciel) może go zobaczyć i użyć do uploadu. To nie jest publiczny klucz jak `anon` z Supabase — nie wklejaj go nigdzie indziej i nie udostępniaj linku do panelu. Dla pełnego bezpieczeństwa docelowo warto przepiąć autoryzację Workera na token Supabase zamiast stałego sekretu — daj znać, jeśli chcesz to dociągnąć.
+## Co egzekwuje Worker
+- poprawny token Supabase **i** e-mail z `ADMIN_EMAILS`,
+- tylko JPEG / PNG / GIF / WebP — typ rozpoznawany po zawartości pliku; nazwa pliku, rozszerzenie i nagłówek Content-Type od klienta są ignorowane (SVG i HTML odrzucane),
+- maks. 5 MB (limit egzekwowany także przy czytaniu strumienia),
+- CORS tylko dla domen z `ALLOWED_ORIGINS`.
+
+Upload działa tylko po zalogowaniu przez Supabase (tryb testowy `admin/admin` nie obsługuje uploadu).
 
 ## Test
 Po uzupełnieniu `config.js`, w panelu admina (`admin.html` → Stałe oferty → Edytuj produkt, albo Customy → zdjęcie bazowe) powinieneś móc wybrać plik i zobaczyć podgląd po wgraniu.
