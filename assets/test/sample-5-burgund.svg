@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="600" height="800" role="img" aria-label="Fisherman Beanie Burgund (TEST)">
+<rect width="300" height="400" fill="#e9e9ee"/><path d="M60 230 Q60 110 150 110 Q240 110 240 230 Z" fill="#5c1f24" stroke="#371316" stroke-width="3"/><path d="M150 110 L150 230" stroke="#371316" stroke-width="2" opacity=".5"/>
+      <path d="M60 230 Q20 238 30 252 Q150 285 240 238 Z" fill="#371316" stroke="#371316" stroke-width="3" stroke-linejoin="round"/><circle cx="150" cy="108" r="7" fill="#73272d"/>
+<g transform="rotate(-18 150 200)"><rect x="55" y="175" width="190" height="34" rx="6" fill="#fff" opacity=".85"/><text x="150" y="198" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#b00020">TEST PRODUCT</text></g>
+<text x="150" y="364" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" fill="#222">Fisherman Beanie</text>
+<text x="150" y="384" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#555">H005 · Burgund</text></svg>

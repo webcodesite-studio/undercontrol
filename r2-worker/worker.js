@@ -78,7 +78,7 @@ export default {
     if (!kind) return json({ error: "Only JPEG, PNG, GIF and WebP images are allowed" }, 415);
 
     const key = `products/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${kind.ext}`;
-    await env.PANTS_BUCKET.put(key, body, { httpMetadata: { contentType: kind.type } });
+    await env.PANTS_BUCKET.put(key, body, { httpMetadata: { contentType: kind.type, cacheControl: "public, max-age=31536000, immutable", contentDisposition: "inline" } });
 
     return json({ url: `${env.PUBLIC_BASE_URL}/${key}` }, 200);
   },

@@ -18,7 +18,10 @@ function buildFooter(shopName, sellerIg){
       <div class="f-col"><div class="f-brand">${shopName}</div></div>
       <div class="f-col">
         <a href="index.html">Strona główna</a>
-        <a href="customy.html">Customy</a>
+        <a href="czapki.html">Czapki</a>
+        <a href="spodnie.html">Spodnie</a>
+        <a href="customy.html">Customowe spodnie</a>
+        <a href="koszyk.html">Koszyk</a>
         <a href="kontakt.html">Kontakt</a>
       </div>
       <div class="f-col">

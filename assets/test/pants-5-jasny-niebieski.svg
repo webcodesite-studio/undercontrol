@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="600" height="800" role="img" aria-label="Wide Denim Jasny niebieski (TEST)">
+<rect width="300" height="400" fill="#e9e9ee"/><path d="M95 60 L205 60 L218 330 L160 330 L150 175 L140 330 L82 330 Z" fill="#8fb0d6" stroke="#566a80" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M95 60 L205 60 L204 82 L96 82 Z" fill="#566a80" opacity=".55"/><path d="M150 82 L150 175" stroke="#566a80" stroke-width="2.5"/>
+      <path d="M112 96 q18 4 22 30" stroke="#b3dcff" stroke-width="2.5" fill="none" opacity=".7"/><path d="M188 96 q-18 4 -22 30" stroke="#b3dcff" stroke-width="2.5" fill="none" opacity=".7"/>
+      <path d="M100 250 L132 252 M168 252 L200 250" stroke="#566a80" stroke-width="2" opacity=".6"/>
+<g transform="rotate(-18 150 200)"><rect x="55" y="175" width="190" height="34" rx="6" fill="#fff" opacity=".85"/><text x="150" y="198" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#b00020">TEST PRODUCT</text></g>
+<text x="150" y="364" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" fill="#222">Wide Denim</text>
+<text x="150" y="384" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#555">P005 · Jasny niebieski</text></svg>

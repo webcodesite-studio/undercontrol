@@ -36,6 +36,7 @@ const FALLBACK_SETTINGS = {
   contact_text: "Masz pytania? Napisz do nas na Instagramie."
 };
 let SETTINGS = { offer_enabled:false, offer_text:"", contact_text:"" };
+let BASE_PRICE = 0; // site_settings.custom_base_price — cena bazowa Customa (domyślnie 0)
 let HOLE_PRICE = DEFAULT_HOLE_PRICE; // ustawiane z site_settings.hole_price (Ustawienia w panelu)
 const MAX_HOLES = 6;
 let state = { step:0, kolor:null, kroj:null, rozmiar:null, holes:[] };
@@ -67,6 +68,7 @@ async function loadSettings(){
     SETTINGS = FALLBACK_SETTINGS;
   }
   HOLE_PRICE = holePriceOf(SETTINGS);
+  BASE_PRICE = Math.max(0, Number(SETTINGS.custom_base_price) || 0);
 
   const bar = document.getElementById("offerBar");
   if(SETTINGS.offer_enabled && SETTINGS.offer_text){
@@ -112,14 +114,10 @@ function render(){
   const sb = document.getElementById("sizeBtns"); sb.innerHTML="";
   SIZES.forEach(s=>{
     const b = el("button","size-btn", s);
-    b.onclick=()=>{ state.rozmiar=s; [...sb.children].forEach(c=>c.classList.remove("selected")); b.classList.add("selected"); updateBar(); };
+    b.onclick=()=>{ state.rozmiar=s; [...sb.children].forEach(c=>c.classList.remove("selected")); b.classList.add("selected"); highlightChartSize(s); updateBar(); };
     sb.appendChild(b);
   });
 
-  document.getElementById("igLink").href = `https://ig.me/m/${window.SELLER_IG || IG_NICK}`;
-  document.addEventListener("siteSettingsReady", ()=>{
-    document.getElementById("igLink").href = `https://ig.me/m/${window.SELLER_IG}`;
-  });
   showStep(0);
   updateBar();
 }
@@ -258,7 +256,7 @@ function showStep(i){
   });
   if(i===3) buildSummary();
   document.getElementById("backBtn").disabled = i===0;
-  document.getElementById("nextBtn").textContent = i===3 ? "Wyślij zamówienie" : "Dalej";
+  document.getElementById("nextBtn").textContent = i===3 ? "Dodaj do koszyka" : "Dalej";
 }
 
 function canAdvance(){
@@ -268,7 +266,7 @@ function canAdvance(){
 }
 
 function totalPrice(){
-  return (state.kolor?.price_extra||0)+(state.kroj?.price_extra||0)+(state.holes.length*HOLE_PRICE);
+  return BASE_PRICE+(state.kolor?.price_extra||0)+(state.kroj?.price_extra||0)+(state.holes.length*HOLE_PRICE);
 }
 
 function updateBar(){
@@ -283,6 +281,7 @@ function buildSummary(){
     ["Dziury", state.holes.length ? `${state.holes.length} szt.` : "Brak"],
     ["Krój", state.kroj?.name],
     ["Rozmiar", state.rozmiar],
+    ["Cena sztuki", totalPrice()+" zł"],
   ];
   box.innerHTML = rows.map(([k,v])=>`<div class="summary-row"><span>${k}</span><b>${v?escapeText(v):"-"}</b></div>`).join("");
 }
@@ -291,42 +290,54 @@ document.getElementById("backBtn").onclick=()=> showStep(Math.max(0, state.step-
 document.getElementById("nextBtn").onclick=()=>{
   if(!canAdvance()) return;
   if(state.step<3){ showStep(state.step+1); return; }
-  submitOrder();
+  addToCart();
 };
 
-function validIG(nick){ return /^@?[a-zA-Z0-9](?:[a-zA-Z0-9._]{0,28}[a-zA-Z0-9])?$/.test(nick); }
-
-async function submitOrder(){
-  if(document.getElementById("hpField").value){ return; } // honeypot — bot złapany, nic nie rób
-  const ig = document.getElementById("igInput").value.trim();
-  const mail = document.getElementById("emailInput").value.trim();
-  if(!ig || !validIG(ig)){
-    document.getElementById("igInput").focus();
-    document.getElementById("igInput").style.borderColor = "#ff6b6b";
-    return;
-  }
-  document.getElementById("igInput").style.borderColor = "";
-  const payload = {
-    kolor: state.kolor?.name, kroj: state.kroj?.name, rozmiar: state.rozmiar,
-    dziury_liczba: state.holes.length,
-    dziury_opis: state.holes.length
-      ? state.holes.map((h,i)=>`${i+1}) ${HOLE_STYLES[h.styleId]?.name||"dziura"}: x ${Math.round(h.x)}%, y ${Math.round(h.y)}%, ${Math.round(h.w)}×${Math.round(h.h)}%`).join("; ")
-      : "(brak dziur)",
-    cena_dziury: HOLE_PRICE+" zł",
-    cena_dodatkowa: totalPrice()+" zł", instagram: ig, email: mail || "(brak)"
-  };
-  document.getElementById("nextBtn").disabled = true;
-  document.getElementById("nextBtn").textContent = "Wysyłanie...";
-  try{
-    await fetch(FORMSPREE_ENDPOINT, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json", "Accept":"application/json" },
-      body: JSON.stringify(payload)
-    });
-  }catch(e){ console.error(e); }
+// Zamiast wysyłki mailem Custom trafia do wspólnego koszyka (cart.js); zamówienie składa się w koszyku/zamówieniu.
+function addToCart(){
+  const holes = state.holes.map(h=>({ style: HOLE_STYLES[h.styleId]?.name || "dziura", x:Math.round(h.x), y:Math.round(h.y), w:Math.round(h.w), h:Math.round(h.h) }));
+  const r = Cart.add({
+    type:"custom", name:"Custom spodnie",
+    color: state.kolor.name, colorHex: state.kolor.hex || "#555555",
+    cut: state.kroj.name, size: state.rozmiar,
+    holes, holePrice: HOLE_PRICE,
+    notes: document.getElementById("pantsNotes").value.trim() || null,
+    measurements: document.getElementById("pantsMeasurements").value.trim() || null,
+    unitPrice: totalPrice(),
+  }, 1);
+  if(!r.ok){ showToast(r.error || "Nie udało się dodać do koszyka", "err"); return; }
+  showToast("Dodano do koszyka ✓");
   document.querySelector(".options").querySelectorAll("section.step").forEach(s=>s.style.display="none");
+  document.querySelector(".steps").style.display = "none";
   document.getElementById("doneScreen").style.display="block";
   document.getElementById("bottombar").style.display="none";
 }
+document.getElementById("anotherBtn").onclick = ()=>{
+  state = { step:0, kolor:null, kroj:null, rozmiar:null, holes:[] }; selectedHoleIdx = null;
+  document.getElementById("pantsNotes").value = ""; document.getElementById("pantsMeasurements").value = "";
+  document.querySelectorAll("section.step").forEach(s=>s.style.display="");
+  document.querySelector(".steps").style.display = "";
+  document.getElementById("doneScreen").style.display="none";
+  document.getElementById("bottombar").style.display="";
+  document.getElementById("pantsFill").setAttribute("fill","#555");
+  render(); updatePreview();
+};
 
+// ID produktu i tabela rozmiarów customów
+document.getElementById("customPid").innerHTML = productIdHtml("CUSTOM");
+Store.sizeChartFor("custom", null).then(c=>{ document.getElementById("customChart").innerHTML = sizeChartHtml(c); highlightChartSize(state.rozmiar); }).catch(()=>{});
+// konfiguracja testowa (widoczna tylko, gdy w sklepie są produkty testowe)
+Store.anyTest().then(t=>{ if(t) document.getElementById("testTools").hidden = false; });
+document.getElementById("loadTestCfg").onclick = ()=>{
+  const col = OPTIONS.kolor.find(o=>o.available && o.name!==OPTIONS.kolor[0]?.name) || OPTIONS.kolor.find(o=>o.available);
+  state.kolor = col; state.kroj = OPTIONS.kroj.find(o=>o.available) || null; state.rozmiar = "M";
+  state.holes = [{ x:38, y:62, w:14, h:9, styleId:0 },{ x:64, y:70, w:11, h:8, styleId:Math.min(1,HOLE_STYLES.length-1) }];
+  selectedHoleIdx = null;
+  document.getElementById("pantsMeasurements").value = "TEST: pas 80 cm, biodra 100 cm, długość 104 cm";
+  document.getElementById("pantsNotes").value = "TEST: przykładowa konfiguracja — do usunięcia";
+  render(); updatePreview(); updateSwatchSelection();
+  [...document.querySelectorAll("#sizeBtns .size-btn")].forEach(b=>b.classList.toggle("selected", b.textContent==="M"));
+  [...document.querySelectorAll("#fitTiles .tile")].forEach((t,i)=>t.classList.toggle("selected", OPTIONS.kroj[i]===state.kroj));
+  showStep(3); updateBar();
+};
 loadOptions();

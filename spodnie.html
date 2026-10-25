@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Gotowe spodnie — wybierz model, kolor i rozmiar.">
+<title>Spodnie</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="container nav-container">
+  <div class="logo"><a href="index.html" id="shopName">TWOJA MARKA</a></div>
+  <button class="menu-toggle" id="mobile-menu" aria-label="Otwórz menu"><span></span><span></span><span></span></button>
+  <nav>
+    <ul class="nav-links" id="nav-list">
+      <li><a href="index.html">Strona główna</a></li>
+      <li><a href="customy.html">Customowe spodnie</a></li>
+      <li><a href="polityka.html">Polityka prywatności</a></li>
+      <li><a href="kontakt.html">Kontakt</a></li>
+    </ul>
+  </nav>
+</div>
+
+<div class="shop-hero">
+  <h1>Spodnie</h1>
+  <p>Gotowe spodnie ze stałej oferty — wybierz model, kolor i rozmiar.</p>
+</div>
+<div class="shop-wrap" data-kind="pants">
+  <div id="catStatus" class="state-box" role="status">Ładowanie spodni…</div>
+  <div class="shop-grid cat-grid" id="catGrid"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script src="nav.js"></script>
+<script src="cart.js"></script>
+<script src="store.js"></script>
+<script src="catalog.js"></script>
+</body>
+</html>

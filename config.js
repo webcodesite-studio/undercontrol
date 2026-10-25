@@ -2,7 +2,6 @@
 const SUPABASE_URL = "https://TWOJ-PROJEKT.supabase.co";
 const SUPABASE_ANON_KEY = "TWOJ_ANON_KEY"; // to jest publiczny klucz, chroniony regułami RLS — OK że jest w kodzie
 
-const FORMSPREE_ENDPOINT = "https://formspree.io/f/TWOJ_ID"; // z formspree.io
 // Formularz „Napisz do administratora” — adres Workera z contact-worker/ (webhook Discorda jest tylko w Workerze, nie tutaj)
 const CONTACT_API_URL = "https://TWOJ-CONTACT-WORKER.workers.dev";
 const IG_NICK = "twoj_nick"; // bez @
@@ -10,3 +9,10 @@ const IG_NICK = "twoj_nick"; // bez @
 // Upload zdjęć do Cloudflare R2 (przez Worker) — instrukcja w folderze r2-worker/README.md
 const R2_UPLOAD_URL = "https://TWOJ-WORKER.workers.dev";
 // Upload jest autoryzowany tokenem sesji Supabase (logowanie do panelu) — nie ma już sekretu w kodzie strony.
+
+// Zamówienia: funkcje serverless w katalogu api/ (Vercel). „Złóż zamówienie” wysyła koszyk automatycznie na ORDER_API_URL; funkcja przekazuje
+// zamówienie przez Formspree (e-mail) i/lub na Discord. Adresy Formspree/Discord i inne sekrety są WYŁĄCZNIE zmiennymi środowiskowymi po stronie
+// serwera (patrz DEPLOY.md) — nie ma ich w tym pliku. Ścieżki względne działają, gdy strona i funkcje są na tej samej domenie Vercel;
+// przy hostingu strony gdzie indziej wpisz pełny adres https://twoja-domena.vercel.app/api/submit-order.
+const ORDER_API_URL = "/api/submit-order";
+const ORDER_ADMIN_URL = "/api/order-admin";   // panel: status integracji, wiadomość testowa, dekoder Base64

@@ -83,6 +83,59 @@
   @media(max-width:480px){.theme-cards{grid-template-columns:1fr;}}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
   .logout{color:var(--muted);font-size:13px;background:none;}
+
+  /* ---- układ z menu bocznym ---- */
+  body{background:var(--bg);}
+  .admin-shell{display:flex;min-height:100vh;}
+  .sidebar{width:250px;flex:0 0 250px;background:var(--surface);border-right:1px solid var(--border);padding:18px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .sb-brand{font-weight:600;font-size:16px;padding:4px 10px 16px;} .sb-brand small{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;}
+  .sb-nav{display:flex;flex-direction:column;gap:2px;flex:1;}
+  .sb-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:14px 10px 4px;}
+  .sb-nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px;border-radius:8px;background:none;color:var(--muted);font-size:14px;}
+  .sb-nav button i{font-style:normal;width:18px;text-align:center;opacity:.8;}
+  .sb-nav button:hover{background:var(--surface2);color:var(--text);}
+  .sb-nav button.active{background:var(--surface2);color:var(--text);box-shadow:inset 3px 0 0 var(--accent);}
+  .sidebar .logout{margin-top:14px;padding:10px;text-align:left;border-top:1px solid var(--border);border-radius:0;}
+  .admin-main{flex:1;min-width:0;padding:20px 24px 80px;max-width:900px;}
+  .topbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .topbar h1{font-size:22px;margin:0;}
+  .menu-btn{display:none;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;width:40px;height:40px;font-size:20px;}
+  .sb-backdrop{display:none;}
+  @media(max-width:860px){
+    .sidebar{position:fixed;left:0;top:0;z-index:60;transform:translateX(-102%);transition:transform .2s ease;box-shadow:0 0 30px rgba(0,0,0,.5);width:270px;}
+    .sidebar.open{transform:none;}
+    .sb-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:55;}
+    .menu-btn{display:block;}
+    .admin-main{padding:14px 14px 80px;}
+  }
+  .pg-title{font-size:20px;margin:0 0 4px;} .pg-h{font-size:15px;margin:22px 0 8px;}
+  .pg-sub{color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 16px;max-width:680px;}
+  .dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:6px;}
+  .dash-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;text-align:left;color:var(--text);}
+  .dash-card:hover{border-color:var(--accent);}
+  .dash-card b{display:block;font-size:26px;color:var(--accent);font-weight:600;} .dash-card span{font-size:12px;color:var(--muted);}
+  .check{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;}
+  .check .ico{flex:0 0 auto;font-weight:700;} .check.ok .ico{color:#9be3a4;} .check.warn .ico{color:#ffd166;} .check.off .ico{color:var(--muted);}
+  .check small{display:block;color:var(--muted);margin-top:2px;}
+  .check button{margin-left:auto;flex:0 0 auto;}
+  .howto{font-size:13px;color:var(--muted);line-height:1.6;padding-left:20px;} code{background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:12px;color:var(--text);}
+  .card-edit{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;}
+  .card-edit h4{margin:0 0 4px;font-size:14px;} .card-edit .lnk{font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .card-edit label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
+  .card-edit input[type=text],.card-edit textarea{width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;margin:0;}
+  .empty{color:var(--muted);font-size:13px;background:var(--surface);border:1px dashed var(--border);border-radius:10px;padding:18px;text-align:center;}
+  .sz-note{flex:2;}
+  .img-prod{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;}
+  .img-prod summary{cursor:pointer;font-size:14px;display:flex;align-items:center;gap:10px;} .img-prod summary small{color:var(--muted);}
+  .img-var{margin:12px 0 4px;} .img-var h5{font-size:12px;color:var(--muted);margin:0 0 6px;font-weight:500;display:flex;align-items:center;gap:6px;}
+  .img-strip{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;}
+  .img-tile{width:92px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px;text-align:center;}
+  .img-tile img{width:100%;height:96px;object-fit:cover;border-radius:6px;display:block;}
+  .img-tile .ctl{display:flex;justify-content:space-between;margin-top:5px;} .img-tile .ctl button{background:none;color:var(--text);font-size:15px;padding:2px 6px;border-radius:5px;} .img-tile .ctl button:disabled{opacity:.25;}
+  .img-tile .main{font-size:10px;color:var(--accent);margin-top:3px;}
+  .dec-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-top:14px;}
+  .chip{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:12px;margin:0 6px 6px 0;}
+  .chart-grid{display:grid;gap:6px;overflow-x:auto;} .chart-grid input{min-width:0;}
 </style>
 </head>
 <body>
@@ -95,24 +148,84 @@
   <p id="loginErr" style="color:#ff6b6b;font-size:13px;"></p>
 </div>
 
-<div id="panel" class="wrap" style="display:none;">
-  <div class="topbar">
-    <h2><span data-brand>TWOJA MARKA</span> — panel</h2>
+<div id="panel" class="admin-shell" style="display:none;">
+  <aside class="sidebar" id="sidebar" aria-label="Menu panelu">
+    <div class="sb-brand"><span data-brand>TWOJA MARKA</span><small>panel sklepu</small></div>
+    <nav class="sb-nav" id="sbNav">
+      <button data-cat="dashboard" class="active"><i>▦</i> Pulpit</button>
+      <button data-cat="szukaj"><i>⌕</i> Wyszukiwarka</button>
+      <div class="sb-label">Katalog</div>
+      <button data-cat="czapki"><i>◒</i> Czapki</button>
+      <button data-cat="spodnie"><i>▯</i> Gotowe spodnie</button>
+      <button data-cat="customy"><i>✎</i> Customowe spodnie</button>
+      <button data-cat="obrazy"><i>▣</i> Zdjęcia produktów</button>
+      <button data-cat="rozmiary"><i>⇔</i> Tabele rozmiarów</button>
+      <div class="sb-label">Sprzedaż</div>
+      <button data-cat="rabaty"><i>%</i> Kody rabatowe</button>
+      <button data-cat="dekoder"><i>#</i> Dekoder zamówień</button>
+      <div class="sb-label">Strona</div>
+      <button data-cat="strona"><i>⌂</i> Zawartość strony głównej</button>
+      <div class="sb-label">Integracje</div>
+      <button data-cat="wysylka"><i>➤</i> Wysyłka zamówień</button>
+      <button data-cat="email"><i>✉</i> Ustawienia e-mail</button>
+      <button data-cat="discord"><i>◈</i> Ustawienia Discord</button>
+      <button data-cat="instagram"><i>◎</i> Ustawienia Instagram</button>
+      <div class="sb-label">System</div>
+      <button data-cat="bezpieczenstwo"><i>⛨</i> Bezpieczeństwo</button>
+      <button data-cat="ogolne"><i>⚙</i> Ustawienia ogólne</button>
+      <button data-cat="kontakt"><i>✆</i> Wiadomość do admina</button>
+    </nav>
     <button class="logout" id="logoutBtn">Wyloguj</button>
+  </aside>
+  <div class="sb-backdrop" id="sbBackdrop"></div>
+
+  <main class="admin-main">
+    <div class="topbar">
+      <button class="menu-btn" id="sbToggle" aria-label="Otwórz menu" aria-expanded="false">☰</button>
+      <h1 id="pageTitle">Pulpit</h1>
+    </div>
+    <div id="devBadge" style="display:none;background:#4a3a00;color:#ffd166;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:16px;">
+      Tryb testowy (bez Supabase) — zmiany zapisują się tylko w tej przeglądarce.
+    </div>
+
+  <div id="dashboardPanel">
+    <p class="pg-sub">Podsumowanie sklepu i stan konfiguracji. Panel nie przechowuje zamówień ani danych klientów.</p>
+    <div id="dashCards" class="dash-grid"></div>
+    <h3 class="pg-h">Konfiguracja</h3>
+    <div id="dashChecks"></div>
   </div>
-  <div id="devBadge" style="display:none;background:#4a3a00;color:#ffd166;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:16px;">
-    Tryb testowy (bez Supabase) — zmiany nie zapisują się do bazy.
+
+  <div id="hatsPanel" style="display:none;">
+    <h2 class="pg-title">Czapki</h2>
+    <p class="pg-sub">Gotowe czapki. Każdy kolor to osobny wariant: własne zdjęcia, rozmiary, stany i opcjonalnie cena. Czapek nie można personalizować.</p>
+    <div class="inline-msg" id="hatsMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div id="hatsTestBar"></div>
+    <div id="hatsList"></div>
+    <button class="add-btn" id="addHatBtn">+ Dodaj czapkę</button>
   </div>
-  <div class="tabs">
-    <button data-cat="produkty" class="active">Stałe oferty</button>
-    <button data-cat="customy">Customy</button>
-    <button data-cat="sprzedaz">Sprzedaż</button>
-    <button data-cat="kampanie">Kampanie</button>
-    <button data-cat="kontakt">Kontakt</button>
-    <button data-cat="ustawienia">Ustawienia</button>
+
+  <div id="spodniePanel" style="display:none;">
+    <h2 class="pg-title">Gotowe spodnie</h2>
+    <p class="pg-sub">Stała oferta spodni (osobna podstrona „Spodnie”). To nie są spodnie customowe. Kolory, rozmiary (z wymiarami), stany, zdjęcia i ceny — tak jak przy czapkach.</p>
+    <div class="inline-msg" id="pantsMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div id="pantsTestBar"></div>
+    <div id="pantsList"></div>
+    <button class="add-btn" id="addPantsBtn">+ Dodaj spodnie</button>
   </div>
 
   <div id="customySubtabs" style="display:none;">
+    <h2 class="pg-title">Customowe spodnie — ustawienia</h2>
+    <p class="pg-sub">Narzędzie do projektowania własnych spodni. Dostępne tylko w sekcji „Customowe spodnie” — nie ma nic wspólnego z czapkami ani gotowymi spodniami.</p>
+    <div class="add-form" style="margin:0 0 18px;">
+      <div class="add-form-title">Ceny</div>
+      <div class="two-col">
+        <div><label for="holePriceInput">Cena jednej dziury (zł)</label><input type="number" id="holePriceInput" min="0" max="10000" step="1" inputmode="decimal"></div>
+        <div><label for="basePriceInput">Cena bazowa spodni (zł)</label><input type="number" id="basePriceInput" min="0" max="100000" step="1" inputmode="decimal"></div>
+      </div>
+      <p class="hint-line">Cena końcowa = cena bazowa + dopłata za kolor + dopłata za krój + liczba dziur × cena dziury. Baza 0 = klient płaci tylko dopłaty.</p>
+      <button class="btn btn-primary js-save-settings" data-group="customy" data-msg="customyPriceMsg" style="width:100%;">Zapisz ceny</button>
+      <div class="inline-msg" id="customyPriceMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
+    </div>
     <p class="cat-label">Zdjęcie bazowe do edytora dziur (klient projektuje dziury na tym zdjęciu)</p>
     <div class="card" style="align-items:center;margin-bottom:16px;">
       <img id="baseImgPreview" src="" style="width:50px;height:65px;object-fit:cover;border-radius:8px;display:none;">
@@ -145,95 +258,109 @@
     </div>
   </div>
 
-  <div id="contactPanel" style="display:none;">
-    <p class="cat-label">Wiadomość do administratora (Discord — widoczne tylko w panelu)</p>
-    <form class="contact-form" id="contactForm" novalidate>
-      <label for="cfName">Imię lub nick</label>
-      <input type="text" id="cfName" maxlength="60" autocomplete="off" required>
-      <label for="cfContact">E-mail lub inny kontakt</label>
-      <input type="text" id="cfContact" maxlength="120" autocomplete="off" required>
-      <label for="cfMessage">Wiadomość</label>
-      <textarea id="cfMessage" rows="5" maxlength="1000" required></textarea>
-      <div class="cf-count" id="cfCount">0 / 1000</div>
-      <button type="submit" class="btn btn-primary" id="cfSend" style="width:100%;">Wyślij na Discord</button>
-      <div class="cf-msg" id="cfMsg" role="status" aria-live="polite"></div>
-    </form>
+
+  <div id="imagesPanel" style="display:none;">
+    <h2 class="pg-title">Zdjęcia produktów</h2>
+    <p class="pg-sub">Zdjęcia każdego koloru czapek i gotowych spodni w jednym miejscu: wgrywaj, wymieniaj, usuwaj i zmieniaj kolejność (pierwsze zdjęcie jest główne). Dozwolone: JPEG, PNG, GIF, WebP do 5 MB. Zdjęcia kart strony głównej i zdjęcie bazowe Customów zmienisz w „Zawartość strony głównej” i „Customowe spodnie”.</p>
+    <div class="inline-msg" id="imagesMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <input type="file" id="imgPanelFile" accept="image/jpeg,image/png,image/gif,image/webp" multiple style="display:none;">
+    <div id="imagesList"></div>
   </div>
 
-  <div id="settingsPanel" style="display:none;">
-    <p class="cat-label">Nazwa marki (jedno źródło: nawigacja, stopka, tytuły stron, panel, meta opisy)</p>
-    <input type="text" id="shopNameInput" placeholder="Nazwa sklepu">
-    <p class="cat-label" style="margin-top:4px;">Nick sprzedawcy na Instagramie (bez @)</p>
-    <input type="text" id="sellerIgInput" placeholder="np. moj_sklep_ig">
-    <p id="sellerIgErr" style="color:#ff6b6b;font-size:12px;display:none;">Niepoprawny format nicku Instagram.</p>
-    <p class="cat-label" style="margin-top:16px;">Sekcja kontakt (widoczna w podsumowaniu / na stronie Kontakt)</p>
-    <textarea id="contactTextInput" rows="3" style="width:100%;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;margin-bottom:4px;font-family:inherit;"></textarea>
-    <p class="cat-label" style="margin-top:20px;">Polityka prywatności (Markdown)</p>
-    <textarea id="policyMdInput" rows="8" style="width:100%;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-family:monospace;margin-bottom:4px;" placeholder="# Polityka prywatności&#10;&#10;Treść w formacie Markdown..."></textarea>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Obsługiwane: # nagłówki, **pogrubienie**, listy z "- ", akapity.</p>
-    <p class="cat-label" style="margin-top:20px;">Cena jednej dziury w Customach (zł)</p>
-    <input type="number" id="holePriceInput" min="0" max="10000" step="1" inputmode="decimal">
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Jedno ustawienie dla całej strony: generator, podgląd i cena końcowa oraz rejestr sprzedaży.</p>
-    <button class="btn btn-primary" style="width:100%;" id="saveSettingsBtn">Zapisz ustawienia</button>
-    <div class="inline-msg" id="settingsMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
-
-    <p class="cat-label" style="margin-top:28px;">Wygląd — motyw kolorystyczny</p>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Kliknij motyw, żeby go zastosować. Zmienia kolory na całej stronie (tło, karty, akcent, tekst) — razem z nazwą sklepu i nickiem Instagram powyżej.</p>
-    <div id="themeCards" class="theme-cards"></div>
+  <div id="sizechartsPanel" style="display:none;">
+    <h2 class="pg-title">Tabele rozmiarów</h2>
+    <p class="pg-sub">Tabela wyświetla się pod produktem. Ustaw tabelę <b>domyślną</b> dla czapek, gotowych spodni i customów albo przypisz osobną tabelę do konkretnego produktu (w jego edycji).</p>
+    <div class="inline-msg" id="chartsMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div id="chartsList"></div>
+    <button class="add-btn" id="addChartBtn">+ Dodaj tabelę rozmiarów</button>
   </div>
 
-  <div id="productsPanel" style="display:block;">
-    <button class="add-btn" id="toggleArchiveBtn" style="margin:0 0 12px;padding:10px;font-size:13px;">Pokaż archiwum</button>
-    <div id="productsList"></div>
-    <button class="add-btn" id="addProductBtn">+ Dodaj produkt</button>
-  </div>
-
-  <div id="salesPanel" style="display:none;">
-    <p class="cat-label">Podsumowanie sprzedaży</p>
-    <div id="salesSummary" class="stats"></div>
-
-    <p class="cat-label">Zarejestruj sprzedaż</p>
-    <div class="add-form" id="saleForm">
-      <div class="seg" id="saleModes">
-        <button type="button" data-mode="offer" class="active">Oferta stała</button>
-        <button type="button" data-mode="custom">Custom</button>
-      </div>
-      <div id="saleErr" class="form-err" role="alert" style="display:none;"></div>
-      <div id="saleOffer">
-        <label for="sProduct">Produkt (dostępne oferty)</label><select id="sProduct"></select>
-        <div class="two-col">
-          <div><label for="sSize">Rozmiar</label><select id="sSize"></select></div>
-          <div><label for="sColor">Kolor</label><select id="sColor"></select></div>
-        </div>
-      </div>
-      <div id="saleCustom" style="display:none;">
-        <div class="two-col">
-          <div><label for="sCColor">Kolor</label><select id="sCColor"></select></div>
-          <div><label for="sCCut">Krój</label><select id="sCCut"></select></div>
-        </div>
-        <div class="two-col">
-          <div><label for="sCSize">Rozmiar</label><select id="sCSize"></select></div>
-          <div><label for="sCHoles">Liczba dziur</label><input type="number" id="sCHoles" min="0" max="50" step="1" value="0" inputmode="numeric"></div>
-        </div>
-        <div id="sCInfo" class="hint-line"></div>
+  <div id="searchPanel" style="display:none;">
+    <h2 class="pg-title">Wyszukiwarka</h2>
+    <p class="pg-sub">Przeszukuje produkty: czapki, gotowe spodnie i konfigurator customów (ID, nazwy, kolory, rozmiary, dostępność). Zamówień tu nie ma, bo nie są nigdzie zapisywane — szukaj ich w skrzynce e-mail po numerze zamówienia lub @nicku (są w temacie).</p>
+    <form class="add-form" id="searchForm" style="margin-top:0;" novalidate>
+      <label for="sQ">Szukaj</label>
+      <div style="display:flex;gap:8px;"><input type="text" id="sQ" placeholder="np. H001, cargo, czarny, M…" autocomplete="off" style="margin:0;"><button class="btn btn-primary" type="submit" style="flex:0 0 auto;padding:0 20px;">Szukaj</button></div>
+      <div class="two-col">
+        <div><label for="sCat">Kategoria</label><select id="sCat"><option value="">Wszystkie</option><option value="hat">Czapki</option><option value="pants">Gotowe spodnie</option><option value="custom">Spodnie custom (konfigurator)</option></select></div>
+        <div><label for="sAvail">Dostępność produktów</label><select id="sAvail"><option value="">Dowolna</option><option value="in">Dostępne (są sztuki)</option><option value="out">Brak na stanie</option><option value="hidden">Ukryte</option></select></div>
       </div>
       <div class="two-col">
-        <div><label for="sQty">Liczba sztuk</label><input type="number" id="sQty" min="1" step="1" value="1" inputmode="numeric"></div>
-        <div><label for="sPrice">Cena za sztukę (zł)</label><input type="number" id="sPrice" min="0" step="0.01" inputmode="decimal"></div>
+        <div><label for="sColor">Kolor</label><input type="text" id="sColor" placeholder="np. czarny" autocomplete="off"></div>
+        <div><label for="sSize">Rozmiar</label><input type="text" id="sSize" placeholder="np. M" autocomplete="off"></div>
       </div>
-      <label for="sDate">Data sprzedaży</label><input type="date" id="sDate">
-      <button type="button" class="btn btn-primary" id="saleSaveBtn" style="width:100%;margin-top:14px;">Zapisz sprzedaż</button>
-      <div class="inline-msg" id="saleMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
-    </div>
+      <button type="button" class="link-btn" id="sReset" style="margin-top:8px;">Wyczyść filtry</button>
+    </form>
+    <div class="inline-msg" id="searchMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div id="searchResults"></div>
+  </div>
 
-    <p class="cat-label" style="margin-top:24px;">Według produktu</p><div id="salesByProduct"></div>
-    <p class="cat-label" style="margin-top:20px;">Według rozmiaru</p><div id="salesBySize"></div>
-    <p class="cat-label" style="margin-top:20px;">Według koloru</p><div id="salesByColor"></div>
-    <p class="cat-label" style="margin-top:20px;">Customy</p><div id="salesCustom"></div>
-    <p class="cat-label" style="margin-top:20px;">Ostatnie wpisy</p><div id="salesRecent"></div>
+  <div id="deliveryPanel" style="display:none;">
+    <h2 class="pg-title">Wysyłka zamówień</h2>
+    <p class="pg-sub">Wybierz, gdzie trafia kompletne zamówienie z koszyka. Zamówienie <b>nie jest zapisywane w żadnej bazie</b> i <b>nigdy nie jest wysyłane na Instagram</b> (Instagram służy tylko do pytań, płatności i potwierdzenia). Zmiana nie wpływa na zawartość koszyka ani dane zamówienia — zmienia tylko miejsce docelowe.</p>
+    <div class="inline-msg" id="deliveryMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div class="add-form" style="margin-top:0;">
+      <div class="check ok" id="deliveryActive" style="margin-bottom:12px;"><span class="ico">✓</span><div id="deliveryActiveText">—</div></div>
+      <fieldset style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0;">
+        <legend style="font-size:12px;color:var(--muted);padding:0 6px;">Metoda powiadamiania</legend>
+        <label class="opt" style="margin:10px 0;"><input type="radio" name="orderDelivery" value="email"> Tylko e-mail (Formspree)</label>
+        <label class="opt" style="margin:10px 0;"><input type="radio" name="orderDelivery" value="discord"> Tylko Discord</label>
+        <label class="opt" style="margin:10px 0;"><input type="radio" name="orderDelivery" value="both"> E-mail (Formspree) i Discord <span class="muted">— domyślnie, do testów</span></label>
+      </fieldset>
+      <div class="inline-msg warn" id="discordOnlyWarn" style="display:none;margin-top:10px;">⚠ „Tylko Discord” oznacza, że kompletne zamówienie NIE trafi e-mailem. Zalecane na produkcji: e-mail (Formspree) jako główny zapis zamówień.</div>
+      <div id="deliveryStatus" class="hint-line"></div>
+      <button class="btn btn-primary" id="deliverySave" style="width:100%;margin-top:8px;">Zapisz</button>
+    </div>
+  </div>
+
+  <div id="decoderPanel" style="display:none;">
+    <h2 class="pg-title">Dekoder zamówień</h2>
+    <p class="pg-sub">Wklej blok <b>Base64</b> z e-maila z zamówieniem (zamówienia ze spodniami custom) — zobaczysz czytelne, kompletne dane zamówienia. Dane są sprawdzane przed odczytem. Zamówienia nie są nigdzie zapisywane, więc sam numer zamówienia nic nie odczyta: pełne zamówienie jest w e-mailu (numer i @nick są w jego temacie). Wymaga zalogowania administratora. Base64 to tylko kodowanie, nie szyfrowanie.</p>
+    <div class="add-form" style="margin-top:0;">
+      <label for="decCode">Dane Base64 z e-maila</label>
+      <textarea id="decCode" rows="3" maxlength="30000" placeholder="eyJ2IjoxLCJraW5kIjoi…" autocomplete="off" spellcheck="false" style="font-family:ui-monospace,Menlo,monospace;font-size:13px;"></textarea>
+      <button class="btn btn-primary" id="decBtn" style="width:100%;margin-top:10px;">Odczytaj zamówienie</button>
+      <div class="inline-msg" id="decMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
+    </div>
+    <div id="decResult"></div>
+  </div>
+
+  <div id="securityPanel" style="display:none;">
+    <h2 class="pg-title">Bezpieczeństwo</h2>
+    <p class="pg-sub">Stan zabezpieczeń panelu i integracji. Sekretów (klucze, webhook, adres Formspree) nie ma w panelu ani na stronie — są wyłącznie w zmiennych środowiskowych serwera (Vercel).</p>
+    <div id="secChecks"></div>
+    <h3 class="pg-h">Zmiana hasła</h3>
+    <div class="add-form" style="margin-top:0;">
+      <label for="pwNew">Nowe hasło <span class="hint">(min. 10 znaków)</span></label><input type="password" id="pwNew" autocomplete="new-password" style="width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+      <label for="pwNew2">Powtórz hasło</label><input type="password" id="pwNew2" autocomplete="new-password" style="width:100%;padding:11px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+      <button class="btn btn-primary" id="pwBtn" style="width:100%;margin-top:14px;">Zmień hasło</button>
+      <div class="inline-msg" id="pwMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
+    </div>
+    <h3 class="pg-h">Sesje</h3>
+    <p class="pg-sub">Panel wylogowuje się automatycznie po 30 minutach bezczynności.</p>
+    <button class="btn btn-ghost" id="signOutAll" style="width:100%;max-width:320px;">Wyloguj ze wszystkich urządzeń</button>
+    <div class="inline-msg" id="signoutMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
+  </div>
+
+  <div id="discountsPanel" style="display:none;">
+    <h2 class="pg-title">Kody rabatowe</h2>
+    <p class="pg-sub">Działają w koszyku dla czapek, gotowych spodni i spodni custom. Użycie kodu jest liczone przy zatwierdzeniu zamówienia (zapisywany jest tylko licznik).</p>
+    <div class="inline-msg" id="discountsMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div id="discountsList"></div>
+    <button class="add-btn" id="addDiscountBtn">+ Dodaj kod rabatowy</button>
+  </div>
+
+  <div id="homePanel" style="display:none;">
+    <h2 class="pg-title">Zawartość strony głównej</h2>
+    <p class="pg-sub">Strona główna zawsze pokazuje trzy karty: Czapki, Spodnie i Customowe spodnie. Tu zmienisz teksty, zdjęcia i kolejność kart (linki są stałe). Menu u góry zawiera te same trzy sekcje oraz koszyk.</p>
+    <div class="inline-msg" id="homeMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div id="homeCardsForm"></div>
+    <button class="btn btn-primary" id="homeSave" style="width:100%;margin-top:6px;">Zapisz karty</button>
+    <input type="file" id="cardImgFile" accept="image/*" style="display:none;">
   </div>
 
   <div id="campaignsPanel" style="display:none;">
+    <h3 class="pg-h" style="margin-top:30px;">Baner na górze strony</h3>
     <p class="cat-label">Baner domyślny (gdy żadna kampania nie jest aktywna)</p>
     <div class="card" style="align-items:center;">
       <div class="meta">Pokazuj baner domyślny</div>
@@ -248,6 +375,86 @@
     <button class="add-btn" id="addCampaignBtn">+ Zaplanuj kampanię</button>
   </div>
 
+
+
+  <div id="emailPanel" style="display:none;">
+    <h2 class="pg-title">Ustawienia e-mail (Formspree)</h2>
+    <p class="pg-sub">Opcjonalne: koszyk może wysyłać zamówienie na Twój adres e-mail. Adres formularza Formspree jest <b>zmienną środowiskową serwera (Vercel)</b> — nie ma go w panelu ani na stronie (odbiorcę ustawiasz w panelu Formspree) — nie da się ich ustawić ani podejrzeć w panelu i nigdy nie trafiają na stronę.</p>
+    <div class="inline-msg" id="emailMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div class="add-form" style="margin-top:0;">
+      <div class="hint-line" id="emailActive"></div>
+      <div id="emailStatus" class="hint-line"></div>
+      <button class="btn btn-ghost js-test-channel" data-channel="email" data-msg="emailMsg" style="width:100%;margin-top:8px;">Wyślij wiadomość testową</button>
+      <details style="margin-top:14px;"><summary style="cursor:pointer;font-size:13px;">Jak to skonfigurować</summary>
+        <ol class="howto"><li>Funkcje zamówień są w katalogu <code>api/</code> (Vercel). Do czasu dodania prawdziwych kluczy możesz ustawić <code>ORDER_TEST_MODE=true</code> — wtedy nic nie jest wysyłane i strona to wyraźnie pokazuje.</li>
+        <li>Załóż formularz na formspree.io, wpisz w nim swój adres e-mail, a jego adres (<code>https://formspree.io/f/…</code>) dodaj w Vercel → Settings → Environment Variables jako <code>FORMSPREE_ENDPOINT</code>.</li>
+        <li>Wróć tutaj, włącz przełącznik i użyj wiadomości testowej.</li></ol></details>
+    </div>
+  </div>
+
+  <div id="discordPanel" style="display:none;">
+    <h2 class="pg-title">Ustawienia Discord</h2>
+    <p class="pg-sub">Opcjonalne: zamówienie może trafiać na kanał Discord przez webhook. Adres webhooka to <b>zmienna środowiskowa serwera</b> (<code>DISCORD_WEBHOOK_URL</code> w Vercel) — nie ma go w panelu ani na stronie.</p>
+    <div class="inline-msg" id="discordMsg" role="status" aria-live="polite" style="display:none;"></div>
+    <div class="add-form" style="margin-top:0;">
+      <div class="hint-line" id="discordActive"></div>
+      <div id="discordStatus" class="hint-line"></div>
+      <button class="btn btn-ghost js-test-channel" data-channel="discord" data-msg="discordMsg" style="width:100%;margin-top:8px;">Wyślij wiadomość testową</button>
+      <details style="margin-top:14px;"><summary style="cursor:pointer;font-size:13px;">Jak to skonfigurować</summary>
+        <ol class="howto"><li>Discord → Ustawienia kanału → Integracje → Webhooki → Nowy webhook → skopiuj adres.</li>
+        <li>Dodaj adres webhooka w Vercel → Settings → Environment Variables jako <code>DISCORD_WEBHOOK_URL</code>.</li>
+        <li>Wróć tutaj, włącz przełącznik i użyj wiadomości testowej.</li></ol></details>
+    </div>
+  </div>
+
+  <div id="instagramPanel" style="display:none;">
+    <h2 class="pg-title">Ustawienia Instagram</h2>
+    <p class="pg-sub">Płatność i potwierdzenie zamówienia odbywają się przez Instagram. Ten profil jest linkowany w koszyku, na stronie podsumowania i w stopce.</p>
+    <div class="add-form" style="margin-top:0;">
+      <label for="sellerIgInput">Nick sprzedawcy na Instagramie (bez @)</label>
+      <input type="text" id="sellerIgInput" placeholder="np. moj_sklep_ig">
+      <p id="sellerIgErr" style="color:#ff6b6b;font-size:12px;display:none;">Niepoprawny format nicku Instagram.</p>
+      <p class="hint-line">Link do profilu: <a id="igPreview" href="#" target="_blank" rel="noopener noreferrer">—</a></p>
+      <button class="btn btn-primary js-save-settings" data-group="ig" data-msg="igMsg" style="width:100%;">Zapisz</button>
+      <div class="inline-msg" id="igMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div id="generalPanel" style="display:none;">
+    <h2 class="pg-title">Ustawienia ogólne</h2>
+    <div class="add-form" style="margin-top:0;">
+      <label for="shopNameInput">Nazwa marki <span class="hint">(nawigacja, stopka, tytuły stron, panel)</span></label>
+      <input type="text" id="shopNameInput" placeholder="Nazwa sklepu">
+      <label for="contactTextInput">Sekcja kontakt <span class="hint">(strona główna, Kontakt)</span></label>
+      <textarea id="contactTextInput" rows="3"></textarea>
+      <label for="policyMdInput">Polityka prywatności <span class="hint">(Markdown: # nagłówki, **pogrubienie**, listy „- ”)</span></label>
+      <textarea id="policyMdInput" rows="8" style="font-family:monospace;font-size:13px;" placeholder="# Polityka prywatności&#10;&#10;Treść w formacie Markdown..."></textarea>
+      <button class="btn btn-primary js-save-settings" data-group="general" data-msg="settingsMsg" style="width:100%;margin-top:14px;">Zapisz ustawienia</button>
+      <div class="inline-msg" id="settingsMsg" role="status" aria-live="polite" style="display:none;margin-top:10px;"></div>
+    </div>
+    <h3 class="pg-h">Wygląd — motyw kolorystyczny</h3>
+    <p class="pg-sub">Kliknij motyw, żeby go zastosować na całej stronie.</p>
+    <div id="themeCards" class="theme-cards"></div>
+  </div>
+
+  <div id="contactPanel" style="display:none;">
+    <h2 class="pg-title">Wiadomość do admina</h2>
+    <p class="cat-label">Wiadomość do administratora (Discord — widoczne tylko w panelu)</p>
+    <form class="contact-form" id="contactForm" novalidate>
+      <label for="cfName">Imię lub nick</label>
+      <input type="text" id="cfName" maxlength="60" autocomplete="off" required>
+      <label for="cfContact">E-mail lub inny kontakt</label>
+      <input type="text" id="cfContact" maxlength="120" autocomplete="off" required>
+      <label for="cfMessage">Wiadomość</label>
+      <textarea id="cfMessage" rows="5" maxlength="1000" required></textarea>
+      <div class="cf-count" id="cfCount">0 / 1000</div>
+      <button type="submit" class="btn btn-primary" id="cfSend" style="width:100%;">Wyślij na Discord</button>
+      <div class="cf-msg" id="cfMsg" role="status" aria-live="polite"></div>
+    </form>
+  </div>
+
+
+  </main>
 </div>
 
 <div class="modal-overlay" id="modalOverlay" style="display:none;">
@@ -257,6 +464,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
+<script src="store.js"></script>
 <script src="admin.js"></script>
+<script src="admin-shop.js"></script>
 </body>
 </html>

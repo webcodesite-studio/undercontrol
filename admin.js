@@ -6,17 +6,9 @@ let rows = [];
 // Gdy wpiszesz prawdziwe dane Supabase, ten tryb sam się wyłącza — logowanie admin/admin
 // przestanie działać i panel będzie wymagał prawdziwego konta.
 const SUPABASE_CONFIGURED = !SUPABASE_URL.includes("TWOJ-PROJEKT");
-// admin/admin działa tylko lokalnie (localhost / plik) — nigdy na opublikowanej domenie
-// TYMCZASOWO: obejście testowe dla GitHub Pages — usuń razem z banerem NOT SECURE, gdy skonfigurujesz Supabase.
-const TEMP_BYPASS_HOSTS = ["webcodesite-studio.github.io"];
-const IS_LOCAL_HOST = ["localhost","127.0.0.1","[::1]",""].includes(location.hostname) || TEMP_BYPASS_HOSTS.includes(location.hostname);
-const SHOW_NOT_SECURE = !SUPABASE_CONFIGURED && TEMP_BYPASS_HOSTS.includes(location.hostname);
-if(SHOW_NOT_SECURE){
-  const b = document.createElement("div");
-  b.textContent = "NOT SECURE — tymczasowe logowanie admin/admin. Skonfiguruj konto Supabase i poproś o usunięcie obejścia.";
-  b.style.cssText = "position:sticky;top:0;z-index:100;background:#b00020;color:#fff;font-weight:700;text-align:center;padding:10px 12px;font-size:14px;";
-  document.body.prepend(b);
-}
+// Tryb testowy admin/admin: WYŁĄCZNIE lokalnie (localhost / plik) i tylko gdy config.js ma placeholder Supabase.
+// Na opublikowanej domenie logowanie wymaga prawdziwego konta Supabase.
+const IS_LOCAL_HOST = ["localhost","127.0.0.1","[::1]",""].includes(location.hostname);
 let localDevMode = false;
 const LOCAL_FALLBACK_OPTIONS = [
   {id:"l1",category:"kolor",name:"Czarny",hex:"#1a1a1a",price_extra:0,available:true,sort_order:1},
@@ -46,9 +38,9 @@ async function checkSession(){
 function showLogin(){ document.getElementById("loginBox").style.display="block"; document.getElementById("panel").style.display="none"; }
 function showPanel(){
   document.getElementById("loginBox").style.display="none";
-  document.getElementById("panel").style.display="block";
+  document.getElementById("panel").style.display="flex";
   document.getElementById("devBadge").style.display = localDevMode ? "block" : "none";
-  loadProducts();
+  go("dashboard");
   applyAdminBrand();
 }
 
@@ -71,30 +63,35 @@ document.getElementById("logoutBtn").onclick = async ()=>{
   showLogin();
 };
 
-const mainTabs = document.querySelectorAll('.tabs button[data-cat]');
-mainTabs.forEach(b=>{
-  b.onclick=()=>{
-    mainTabs.forEach(x=>x.classList.remove("active"));
-    b.classList.add("active"); currentCat = b.dataset.cat;
-    const isSettings = currentCat === "ustawienia";
-    const isProducts = currentCat === "produkty";
-    const isCampaigns = currentCat === "kampanie";
-    const isCustomy = currentCat === "customy";
-    const isSales = currentCat === "sprzedaz";
-    const isContact = currentCat === "kontakt";
-    document.getElementById("contactPanel").style.display = isContact ? "block" : "none";
-    document.getElementById("salesPanel").style.display = isSales ? "block" : "none";
-    document.getElementById("customySubtabs").style.display = isCustomy ? "block" : "none";
-    document.getElementById("settingsPanel").style.display = isSettings ? "block" : "none";
-    document.getElementById("productsPanel").style.display = isProducts ? "block" : "none";
-    document.getElementById("campaignsPanel").style.display = isCampaigns ? "block" : "none";
-    if(isSettings) loadSettings();
-    else if(isProducts) loadProducts();
-    else if(isCampaigns) loadCampaigns();
-    else if(isSales) loadSales();
-    else if(isCustomy){ loadRows(); loadBaseImage(); showHolePriceHint(); }
-  };
-});
+// ---- nawigacja boczna: kategoria → panele do pokazania ----
+const SECTIONS = {
+  dashboard:["dashboardPanel"], szukaj:["searchPanel"], wysylka:["deliveryPanel"], czapki:["hatsPanel"], spodnie:["spodniePanel"], customy:["customySubtabs"], obrazy:["imagesPanel"], rozmiary:["sizechartsPanel"],
+  rabaty:["discountsPanel"], dekoder:["decoderPanel"], strona:["homePanel","campaignsPanel"], email:["emailPanel"], discord:["discordPanel"],
+  instagram:["instagramPanel"], bezpieczenstwo:["securityPanel"], ogolne:["generalPanel"], kontakt:["contactPanel"],
+};
+const SECTION_TITLES = { dashboard:"Pulpit", szukaj:"Wyszukiwarka", wysylka:"Wysyłka zamówień", czapki:"Czapki", spodnie:"Gotowe spodnie", customy:"Customowe spodnie — ustawienia", obrazy:"Zdjęcia produktów", rozmiary:"Tabele rozmiarów",
+  rabaty:"Kody rabatowe", dekoder:"Dekoder zamówień", strona:"Zawartość strony głównej", email:"Ustawienia e-mail", discord:"Ustawienia Discord",
+  instagram:"Ustawienia Instagram", bezpieczenstwo:"Bezpieczeństwo", ogolne:"Ustawienia ogólne", kontakt:"Wiadomość do admina" };
+const navBtns = document.querySelectorAll("#sbNav button[data-cat]");
+function closeSidebar(){ document.getElementById("sidebar").classList.remove("open"); document.getElementById("sbBackdrop").classList.remove("open"); document.getElementById("sbToggle").setAttribute("aria-expanded","false"); }
+function go(cat){
+  currentCat = cat;
+  navBtns.forEach(x=>x.classList.toggle("active", x.dataset.cat===cat));
+  const shown = SECTIONS[cat] || [];
+  Object.values(SECTIONS).flat().forEach(id=>{ const el = document.getElementById(id); if(el) el.style.display = shown.includes(id) ? "block" : "none"; });
+  document.getElementById("pageTitle").textContent = SECTION_TITLES[cat] || "";
+  closeSidebar(); window.scrollTo({top:0});
+  if(cat==="ogolne" || cat==="instagram") loadSettings();
+  else if(cat==="strona"){ loadCampaigns(); loadDefaultBanner(); }
+  else if(cat==="customy"){ loadSettings(); loadRows(); loadBaseImage(); showHolePriceHint(); }
+  window.adminShopTab?.(cat);
+}
+navBtns.forEach(b=>{ b.onclick = ()=> go(b.dataset.cat); });
+document.getElementById("sbToggle").onclick = ()=>{
+  const sb = document.getElementById("sidebar"), open = !sb.classList.contains("open");
+  sb.classList.toggle("open", open); document.getElementById("sbBackdrop").classList.toggle("open", open); document.getElementById("sbToggle").setAttribute("aria-expanded", open);
+};
+document.getElementById("sbBackdrop").onclick = closeSidebar;
 document.querySelectorAll('.tabs button[data-subcat]').forEach(b=>{
   b.onclick=()=>{
     document.querySelectorAll('.tabs button[data-subcat]').forEach(x=>x.classList.remove("active"));
@@ -111,7 +108,7 @@ let currentOptionCat = "kolor";
 // ---- popup (modal) — wspólny dla produktów i kampanii ----
 const modalOverlay = document.getElementById("modalOverlay");
 const modalBox = document.getElementById("modalBox");
-function openModal(html){ modalBox.innerHTML = html; modalOverlay.style.display = "flex"; }
+function openModal(html){ modalBox.onclick = null; modalBox.innerHTML = html; modalOverlay.style.display = "flex"; }
 function closeModal(){ modalOverlay.style.display = "none"; modalBox.innerHTML = ""; }
 modalOverlay.onclick = (e)=>{ if(e.target === modalOverlay) closeModal(); };
 function escapeTxt(s){ const d=document.createElement("div"); d.textContent=s||""; return d.innerHTML; }
@@ -195,380 +192,8 @@ function buildSizeChart(rows, unit, extra){
   return [...lines, ...extra].join("\n");
 }
 
-let products = [];
-let showArchived = false;
-async function loadProducts(){
-  if(localDevMode){ products = JSON.parse(localStorage.getItem("localProducts")||"[]"); renderProducts(); return; }
-  const { data, error } = await sb.from("products").select("*").order("category").order("sort_order",{ascending:true,nullsFirst:true});
-  if(error){ alert("Błąd: "+error.message); return; }
-  products = data || []; renderProducts();
-}
-function renderProducts(){
-  const list = document.getElementById("productsList"); list.innerHTML="";
-  const archivedCount = products.filter(p=>p.archived).length;
-  const toggle = document.getElementById("toggleArchiveBtn");
-  toggle.textContent = showArchived ? "Pokaż aktywne produkty" : `Pokaż archiwum (${archivedCount})`;
-  products.filter(p=>!!p.archived === showArchived).forEach(p=>{
-    const vs = variantsOf(p);
-    const card = document.createElement("div"); card.className="card";
-    const dot = document.createElement("div"); dot.className="dot"; dot.style.background = vs[0].color;
-    const meta = document.createElement("div"); meta.className="meta";
-    meta.innerHTML = `<div style="font-size:15px;">${escapeTxt(p.name)}</div>
-      <div style="font-size:12px;color:var(--muted);">${escapeTxt(p.category)} · ${p.price} zł${vs.length>1?` · ${vs.length} kolory`:""}${p.archived?" · archiwum":""}</div>`;
-    const editBtn = document.createElement("button"); editBtn.className="edit-btn"; editBtn.textContent="Edytuj";
-    editBtn.onclick = ()=> openProductModal(p.id);
-    if(p.archived){
-      const restoreBtn = document.createElement("button"); restoreBtn.className="edit-btn"; restoreBtn.textContent="Przywróć";
-      restoreBtn.onclick = ()=> updateProduct(p.id,{archived:false, archived_at:null});
-      card.append(dot, meta, restoreBtn, editBtn);
-    } else {
-      const sw = document.createElement("div"); sw.className="switch"+(p.available?" on":"");
-      sw.title = "Dostępny w sklepie";
-      sw.onclick=()=>{ sw.classList.toggle("on"); updateProduct(p.id,{available:sw.classList.contains("on")}); };
-      card.append(dot, meta, sw, editBtn);
-    }
-    list.appendChild(card);
-  });
-  if(!list.children.length) list.innerHTML = `<p style="color:var(--muted);font-size:13px;">${showArchived?"Archiwum jest puste.":"Brak produktów — dodaj pierwszy."}</p>`;
-}
-document.getElementById("toggleArchiveBtn").onclick = ()=>{ showArchived = !showArchived; renderProducts(); };
-
+// wiersz zdjęcia w oknach edycji (czapki / gotowe spodnie)
 function imgRowHtml(url){ return `<div class="color-row img-row"><img src="${escapeAttr(url)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:8px;"><span style="font-size:11px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeTxt(url.split("/").pop())}</span><button type="button" class="removeRow" aria-label="Usuń zdjęcie">✕</button></div>`; }
-function variantHtml(v){
-  return `<div class="variant">
-    <div class="color-row">
-      <input type="color" class="vColor" value="${escapeAttr(v.color)}" aria-label="Kolor">
-      <input type="text" class="vName" value="${escapeAttr(v.name)}" placeholder="Nazwa koloru, np. Czarny" maxlength="40">
-      <button type="button" class="removeVariant" aria-label="Usuń kolor">✕</button>
-    </div>
-    <div class="vImgs">${v.images.map(imgRowHtml).join("")}</div>
-    <button type="button" class="add-btn vAddImg" style="padding:8px;margin-top:0;">+ Dodaj zdjęcia tego koloru</button>
-    ${localDevMode?'<button type="button" class="add-btn vAddUrl" style="padding:6px;margin-top:4px;font-size:12px;">+ Dodaj zdjęcie z adresu URL (tryb testowy)</button>':""}
-  </div>`;
-}
-function sizeRowHtml(r){
-  return `<div class="color-row size-row">
-    <select class="sSize" aria-label="Rozmiar">${SIZE_LIST.map(s=>`<option${s===r.size?" selected":""}>${s}</option>`).join("")}</select>
-    <input type="number" class="sWaist" min="1" step="0.5" value="${escapeAttr(r.waist)}" placeholder="Pas" aria-label="Pas">
-    <input type="number" class="sLength" min="1" step="0.5" value="${escapeAttr(r.length)}" placeholder="Długość" aria-label="Długość spodni">
-    <button type="button" class="removeRow" aria-label="Usuń rozmiar">✕</button>
-  </div>`;
-}
-function openProductModal(id){
-  const p = id ? products.find(x=>x.id===id) : null;
-  const variants = variantsOf(p);
-  const parsed = parseSizeChart(p?.size_chart);
-  const sizeRows = parsed.rows.sort((a,b)=>SIZE_LIST.indexOf(a.size)-SIZE_LIST.indexOf(b.size));
-  const cat = p?.category || "Baggy";
-  const cats = CUT_LIST.includes(cat) ? CUT_LIST : [cat, ...CUT_LIST];
-  openModal(`
-    <h3>${p?"Edytuj produkt":"Nowy produkt"}</h3>
-    <div id="mErr" class="form-err" role="alert" style="display:none;"></div>
-    <label for="mName">Nazwa</label><input type="text" id="mName" value="${escapeAttr(p?.name)}" placeholder="np. Baggy Black" maxlength="80">
-    <label for="mCategory">Krój / kategoria</label>
-    <select id="mCategory">${cats.map(c=>`<option${c===cat?" selected":""}>${escapeTxt(c)}</option>`).join("")}</select>
-    <label for="mPrice">Cena (zł)</label><input type="number" id="mPrice" min="0" step="1" value="${p?.price ?? 249}">
-    <label>Kolory i zdjęcia <span class="hint">— klient zobaczy tylko zdjęcia wybranego koloru</span></label>
-    <div id="variantRows">${variants.map(variantHtml).join("")}</div>
-    <button type="button" class="add-btn" id="addVariant" style="padding:8px;">+ Dodaj kolor</button>
-    <label for="mDescription">Opis</label><textarea id="mDescription" rows="2" placeholder="Krótki opis produktu">${escapeTxt(p?.description)}</textarea>
-    <label>Rozmiary i wymiary <span class="hint">— jednostka:</span>
-      <select id="mUnit" style="width:auto;display:inline-block;padding:4px 8px;"><option value="cm"${parsed.unit==="cm"?" selected":""}>cm</option><option value="in"${parsed.unit==="in"?" selected":""}>cale</option></select></label>
-    <div class="size-head"><span>Rozmiar</span><span>Pas</span><span>Długość</span><span></span></div>
-    <div id="sizeRows">${sizeRows.map(sizeRowHtml).join("")}</div>
-    <button type="button" class="add-btn" id="addSize" style="padding:8px;">+ Dodaj rozmiar</button>
-    ${parsed.extra.length?`<label for="mExtra">Inne wymiary (tekst z poprzedniej wersji — zachowane)</label><textarea id="mExtra" rows="2">${escapeTxt(parsed.extra.join("\n"))}</textarea>`:""}
-    <input type="file" id="imgFileInput" accept="image/*" multiple style="display:none;">
-    <div class="modal-actions">
-      ${p?`<button class="btn btn-ghost" id="modalDuplicate">Duplikuj</button>`:""}
-      ${p?`<button class="btn btn-ghost" id="modalArchive">${p.archived?"Przywróć":"Archiwizuj"}</button>`:""}
-      ${p?'<button class="btn btn-ghost" id="modalDelete" style="color:#ff6b6b;">Usuń</button>':""}
-      <button class="btn btn-ghost" id="modalCancel">Anuluj</button>
-      <button class="btn btn-primary" id="modalSave">Zapisz</button>
-    </div>`);
-
-  const box = document.getElementById("modalBox");
-  let uploadTarget = null;
-  box.onclick = async (e)=>{
-    const t = e.target;
-    if(t.classList.contains("removeRow")){ t.closest(".color-row").remove(); }
-    else if(t.classList.contains("removeVariant")){
-      if(box.querySelectorAll(".variant").length>1) t.closest(".variant").remove();
-      else showErr("Produkt musi mieć co najmniej jeden kolor.");
-    }
-    else if(t.classList.contains("vAddImg")){ uploadTarget = t.closest(".variant"); document.getElementById("imgFileInput").click(); }
-    else if(t.classList.contains("vAddUrl")){
-      const url = prompt("Adres URL zdjęcia (https://...):");
-      if(url && /^https?:\/\//i.test(url.trim())) t.closest(".variant").querySelector(".vImgs").insertAdjacentHTML("beforeend", imgRowHtml(url.trim()));
-      else if(url) showErr("Adres zdjęcia musi zaczynać się od http:// lub https://");
-    }
-  };
-  function showErr(msg){ const e=document.getElementById("mErr"); e.textContent=msg; e.style.display="block"; e.scrollIntoView({block:"nearest"}); }
-  document.getElementById("addVariant").onclick = ()=>{
-    document.getElementById("variantRows").insertAdjacentHTML("beforeend", variantHtml({name:"",color:"#555555",images:[]}));
-  };
-  document.getElementById("addSize").onclick = ()=>{
-    const used = [...box.querySelectorAll(".sSize")].map(s=>s.value);
-    const next = SIZE_LIST.find(s=>!used.includes(s));
-    if(!next){ showErr("Dodano już wszystkie dostępne rozmiary (XS–XXL)."); return; }
-    document.getElementById("sizeRows").insertAdjacentHTML("beforeend", sizeRowHtml({size:next,waist:"",length:""}));
-  };
-  document.getElementById("imgFileInput").onchange = async (e)=>{
-    const files = [...e.target.files]; e.target.value = "";
-    if(!files.length || !uploadTarget) return;
-    const btn = uploadTarget.querySelector(".vAddImg"), target = uploadTarget;
-    for(let i=0;i<files.length;i++){
-      btn.textContent = `Wgrywanie ${i+1}/${files.length}...`;
-      const url = await uploadToR2(files[i]);
-      if(url) target.querySelector(".vImgs").insertAdjacentHTML("beforeend", imgRowHtml(url));
-    }
-    btn.textContent = "+ Dodaj zdjęcia tego koloru";
-  };
-  document.getElementById("modalCancel").onclick = closeModal;
-  if(p){
-    document.getElementById("modalDelete").onclick = ()=>{ closeModal(); deleteProduct(p.id); };
-    document.getElementById("modalArchive").onclick = ()=>{
-      closeModal();
-      updateProduct(p.id, p.archived ? {archived:false, archived_at:null} : {archived:true, archived_at:new Date().toISOString(), available:false});
-    };
-    document.getElementById("modalDuplicate").onclick = ()=>{
-      closeModal();
-      const { id:_i, created_at:_c, archived:_a, archived_at:_aa, ...copy } = p;
-      createProduct({...copy, name: p.name+" (kopia)", available:false});
-    };
-  }
-  document.getElementById("modalSave").onclick = ()=>{
-    const name = document.getElementById("mName").value.trim();
-    if(!name) return showErr("Podaj nazwę produktu.");
-    const price = Number(document.getElementById("mPrice").value);
-    if(!Number.isFinite(price) || price < 0) return showErr("Cena musi być liczbą nie mniejszą niż 0.");
-
-    const vs = [...box.querySelectorAll(".variant")].map(el=>({
-      name: el.querySelector(".vName").value.trim(),
-      color: el.querySelector(".vColor").value,
-      images: [...el.querySelectorAll(".vImgs img")].map(i=>i.getAttribute("src")),
-    }));
-    if(!vs.length) return showErr("Dodaj co najmniej jeden kolor.");
-    if(vs.length>1 && vs.some(v=>!v.name)) return showErr("Gdy produkt ma kilka kolorów, każdy kolor musi mieć nazwę (np. Czarny).");
-    const names = vs.map(v=>(v.name||v.color).toLowerCase());
-    if(new Set(names).size !== names.length) return showErr("Dwa kolory mają tę samą nazwę — nazwy muszą się różnić.");
-    if(vs.some(v=>!HEX_RE.test(v.color))) return showErr("Nieprawidłowy kolor.");
-
-    const unit = document.getElementById("mUnit").value;
-    const sizes = [...box.querySelectorAll(".size-row")].map(r=>({
-      size: r.querySelector(".sSize").value,
-      waist: r.querySelector(".sWaist").value.trim(),
-      length: r.querySelector(".sLength").value.trim(),
-    }));
-    for(const s of sizes){
-      if(s.length==="" || !(Number(s.length)>0)) return showErr(`Rozmiar ${s.size}: podaj długość spodni (liczba większa od 0, w ${unit==="cm"?"cm":"calach"}).`);
-      if(s.waist!=="" && !(Number(s.waist)>0)) return showErr(`Rozmiar ${s.size}: pas musi być liczbą większą od 0 (albo zostaw puste).`);
-    }
-    const dup = sizes.map(s=>s.size).find((s,i,a)=>a.indexOf(s)!==i);
-    if(dup) return showErr(`Rozmiar ${dup} został dodany dwa razy.`);
-    const extra = (document.getElementById("mExtra")?.value || "").split("\n").map(l=>l.trim()).filter(Boolean);
-
-    const row = {
-      name, price,
-      category: document.getElementById("mCategory").value,
-      variants: vs,
-      // pola zgodne wstecz (starsze wersje strony czytają colors/images):
-      colors: vs.map(v=>v.color),
-      images: vs.flatMap(v=>v.images),
-      description: document.getElementById("mDescription").value.trim(),
-      size_chart: buildSizeChart(sizes, unit, extra),
-      available: p?.available ?? true,
-    };
-    closeModal();
-    if(p) updateProduct(p.id, row); else createProduct(row);
-  };
-}
-async function createProduct(row){
-  if(localDevMode){ row.id="p"+Date.now(); products=[...products,row]; localStorage.setItem("localProducts",JSON.stringify(products)); renderProducts(); return; }
-  const { error } = await sb.from("products").insert(row);
-  if(error) alert("Błąd: "+error.message); else loadProducts();
-}
-async function updateProduct(id, patch){
-  if(localDevMode){ products = products.map(p=>p.id===id?{...p,...patch}:p); localStorage.setItem("localProducts",JSON.stringify(products)); renderProducts(); return; }
-  const { error } = await sb.from("products").update(patch).eq("id", id);
-  if(error) alert("Błąd zapisu: "+error.message+(/variants|archived/.test(error.message)?"\nUruchom migrację SQL z README (migrations/002_*.sql).":"")); else loadProducts();
-}
-async function deleteProduct(id){
-  if(!confirm("Usunąć produkt na stałe? Statystyki sprzedaży zostaną zachowane. Jeśli oferta tylko się skończyła, lepiej użyj „Archiwizuj”.")) return;
-  if(localDevMode){ products=products.filter(p=>p.id!==id); localStorage.setItem("localProducts",JSON.stringify(products)); renderProducts(); return; }
-  const { error } = await sb.from("products").delete().eq("id", id);
-  if(error) alert("Błąd: "+error.message); else loadProducts();
-}
-document.getElementById("addProductBtn").onclick = ()=> openProductModal(null);
-
-// ---- Sprzedaż (statystyki ofert stałych i Customów) ----
-// Zamówienia przychodzą mailem (Formspree), więc sprzedaż rejestrujesz tu po potwierdzeniu zamówienia.
-const CUSTOM_LABEL = "Custom (na zamówienie)";
-let sales = [];
-let saleMode = "offer";
-async function ensureOptions(){
-  if(rows.length) return;
-  if(localDevMode){ rows = localOptions(); return; }
-  const { data } = await sb.from("options").select("*").order("category").order("sort_order",{ascending:true,nullsFirst:true});
-  rows = data || [];
-}
-async function loadSales(){
-  if(localDevMode){ sales = JSON.parse(localStorage.getItem("localSales")||"[]"); }
-  else {
-    const { data, error } = await sb.from("sales").select("*").order("sold_at",{ascending:false}).order("created_at",{ascending:false});
-    if(error){ flash("saleMsg","Błąd wczytywania sprzedaży: "+error.message+(/sales|kind|column/.test(error.message)?" — uruchom migracje SQL z README (002, 003).":""),"err"); return; }
-    sales = data || [];
-  }
-  if(!products.length) await loadProductsSilently();
-  await ensureOptions();
-  setupSaleForm();
-  renderSales();
-}
-async function loadProductsSilently(){
-  if(localDevMode){ products = JSON.parse(localStorage.getItem("localProducts")||"[]"); return; }
-  const { data } = await sb.from("products").select("*"); products = data || [];
-}
-const isCustomSale = r => r.kind === "custom";
-function renderSales(){
-  const items = sales.reduce((s,r)=>s+r.quantity,0);
-  const revenue = sales.reduce((s,r)=>s+r.quantity*Number(r.unit_price),0);
-  const custom = sales.filter(isCustomSale);
-  const cItems = custom.reduce((s,r)=>s+r.quantity,0), cRev = custom.reduce((s,r)=>s+r.quantity*Number(r.unit_price),0);
-  const cHoles = custom.reduce((s,r)=>s+r.quantity*(r.hole_count||0),0);
-  document.getElementById("salesSummary").innerHTML = `
-    <div class="stat"><div class="stat-n" id="statItems">${items}</div><div class="stat-l">sprzedanych sztuk</div></div>
-    <div class="stat"><div class="stat-n" id="statRevenue">${fmtPLN(revenue)}</div><div class="stat-l">łączny przychód</div></div>
-    <div class="stat"><div class="stat-n" id="statCustomItems">${cItems}</div><div class="stat-l">w tym Customy (szt.)</div></div>
-    <div class="stat"><div class="stat-n" id="statCustomRevenue">${fmtPLN(cRev)}</div><div class="stat-l">przychód z Customów${cHoles?` · ${cHoles} dziur`:""}</div></div>`;
-  const group = (keyFn, labelFn) => {
-    const m = new Map();
-    sales.forEach(r=>{ const k=keyFn(r); const e=m.get(k)||{label:labelFn(r),qty:0,sum:0}; e.qty+=r.quantity; e.sum+=r.quantity*Number(r.unit_price); m.set(k,e); });
-    return [...m.values()].sort((a,b)=>b.qty-a.qty);
-  };
-  const table = (rows_, head) => rows_.length
-    ? `<table class="stat-table"><thead><tr><th>${head}</th><th>Szt.</th><th>Przychód</th></tr></thead><tbody>${rows_.map(e=>`<tr><td>${e.label}</td><td>${e.qty}</td><td>${fmtPLN(e.sum)}</td></tr>`).join("")}</tbody></table>`
-    : `<p style="color:var(--muted);font-size:13px;">Brak danych.</p>`;
-  const pname = r => isCustomSale(r) ? CUSTOM_LABEL : r.product_name;
-  const dot = hex => `<span class="mini-dot" style="background:${HEX_RE.test(hex||"")?hex:"#555"}"></span>`;
-  document.getElementById("salesByProduct").innerHTML = table(group(r=>pname(r), r=>escapeTxt(pname(r))), "Produkt");
-  document.getElementById("salesBySize").innerHTML = table(
-    group(r=>r.size||"-", r=>escapeTxt(r.size||"-")).sort((a,b)=>SIZE_LIST.indexOf(a.label)-SIZE_LIST.indexOf(b.label)), "Rozmiar");
-  document.getElementById("salesByColor").innerHTML = table(group(r=>(r.color_name||"-").toLowerCase(), r=>dot(r.color_hex)+escapeTxt(r.color_name||"-")), "Kolor");
-  // tabela Customów liczona tylko z wpisów custom:
-  const cg = new Map();
-  custom.forEach(r=>{ const k=[r.cut,r.size,r.color_name,r.hole_count].join("|"); const e=cg.get(k)||{label:`${escapeTxt(r.cut||"-")} · ${escapeTxt(r.size||"-")} · ${dot(r.color_hex)}${escapeTxt(r.color_name||"-")} · ${r.hole_count||0} dziur`,qty:0,sum:0}; e.qty+=r.quantity; e.sum+=r.quantity*Number(r.unit_price); cg.set(k,e); });
-  document.getElementById("salesCustom").innerHTML = table([...cg.values()].sort((a,b)=>b.qty-a.qty), "Krój · rozmiar · kolor · dziury");
-  const recent = document.getElementById("salesRecent"); recent.innerHTML = "";
-  sales.slice(0,30).forEach(r=>{
-    const card = document.createElement("div"); card.className="card";
-    const meta = document.createElement("div"); meta.className="meta";
-    meta.innerHTML = `<div style="font-size:14px;">${r.quantity} × ${escapeTxt(pname(r))} (${escapeTxt(r.size||"-")}, ${escapeTxt(r.color_name||"-")}${isCustomSale(r)?`, ${r.hole_count||0} dziur`:""})</div>
-      <div style="font-size:12px;color:var(--muted);">${escapeTxt(r.sold_at)} · ${fmtPLN(r.quantity*Number(r.unit_price))}</div>`;
-    card.append(meta, twoStepButton("Usuń", "Na pewno?", ()=>deleteSale(r.id)));
-    recent.appendChild(card);
-  });
-  if(!sales.length) recent.innerHTML = '<p style="color:var(--muted);font-size:13px;">Nie zarejestrowano jeszcze sprzedaży.</p>';
-}
-
-// --- formularz sprzedaży (inline, bez okienek) ---
-const $s = id => document.getElementById(id);
-function offersForSale(){ return products.filter(p=>!p.archived && p.available); }
-function setupSaleForm(){
-  const offers = offersForSale();
-  const prev = $s("sProduct").value;
-  $s("sProduct").innerHTML = offers.length
-    ? offers.map(p=>`<option value="${escapeAttr(p.id)}">${escapeTxt(p.name)} — ${p.price} zł</option>`).join("")
-    : '<option value="">Brak dostępnych ofert</option>';
-  if(prev && offers.some(p=>String(p.id)===prev)) $s("sProduct").value = prev;
-  fillOfferFields();
-  // opcje Customów: kolory i kroje z konfiguratora + rozmiary
-  const colors = rows.filter(r=>r.category==="kolor"), cuts = rows.filter(r=>r.category==="kroj");
-  $s("sCColor").innerHTML = colors.map(c=>`<option value="${escapeAttr(c.name)}" data-hex="${escapeAttr(c.hex||"")}">${escapeTxt(c.name)}</option>`).join("") || "<option value=''>—</option>";
-  $s("sCCut").innerHTML = cuts.map(c=>`<option>${escapeTxt(c.name)}</option>`).join("") || "<option value=''>—</option>";
-  $s("sCSize").innerHTML = SIZE_LIST.map(s=>`<option>${s}</option>`).join("");
-  $s("sDate").value = $s("sDate").value || todayStr();
-  setSaleMode(saleMode);
-}
-function fillOfferFields(){
-  const p = products.find(x=>String(x.id)===$s("sProduct").value);
-  if(!p){ $s("sSize").innerHTML = "<option value=''>—</option>"; $s("sColor").innerHTML = "<option value=''>—</option>"; return; }
-  const sizes = parseSizeChart(p.size_chart).rows.map(r=>r.size);
-  const names = sizes.length ? sizes : (p.size_chart||"").split("\n").map(l=>l.split(":")[0].trim()).filter(Boolean);
-  $s("sSize").innerHTML = names.length ? names.map(s=>`<option>${escapeTxt(s)}</option>`).join("") : "<option value=''>—</option>";
-  $s("sColor").innerHTML = variantsOf(p).map((v,i)=>`<option value="${i}">${escapeTxt(v.name||v.color)}</option>`).join("");
-  $s("sPrice").value = p.price;
-}
-function setSaleMode(mode){
-  saleMode = mode;
-  document.querySelectorAll("#saleModes button").forEach(b=>b.classList.toggle("active", b.dataset.mode===mode));
-  $s("saleOffer").style.display = mode==="offer" ? "block" : "none";
-  $s("saleCustom").style.display = mode==="custom" ? "block" : "none";
-  salePriceTouched = false;
-  if(mode==="offer") fillOfferFields(); else updateCustomPrice();
-}
-document.querySelectorAll("#saleModes button").forEach(b=> b.onclick = ()=> setSaleMode(b.dataset.mode));
-$s("sProduct").onchange = fillOfferFields;
-
-function showSaleErr(msg){ const e=$s("saleErr"); e.textContent=msg; e.style.display = msg ? "block" : "none"; }
-let salePriceTouched = false;
-$s("sPrice").addEventListener("input", ()=>{ salePriceTouched = true; });
-// Podpowiedź ceny Customa: dopłata za kolor + dopłata za krój + liczba dziur × aktualna cena dziury (można nadpisać ręcznie)
-async function updateCustomPrice(){
-  if(saleMode!=="custom") return;
-  const holePrice = holePriceOf(await fetchSettings());
-  const color = rows.find(r=>r.category==="kolor" && r.name===$s("sCColor").value);
-  const cut = rows.find(r=>r.category==="kroj" && r.name===$s("sCCut").value);
-  const holes = Math.max(0, parseInt($s("sCHoles").value,10) || 0);
-  const total = (Number(color?.price_extra)||0) + (Number(cut?.price_extra)||0) + holes*holePrice;
-  $s("sCInfo").textContent = `Dopłaty: kolor ${fmtPLN(color?.price_extra||0)} + krój ${fmtPLN(cut?.price_extra||0)} + ${holes} × ${fmtPLN(holePrice)} (cena dziury z Ustawień) = ${fmtPLN(total)}`;
-  if(!salePriceTouched) $s("sPrice").value = total;
-}
-["sCColor","sCCut","sCHoles"].forEach(id=> $s(id).addEventListener("input", updateCustomPrice));
-$s("sCColor").addEventListener("change", updateCustomPrice); $s("sCCut").addEventListener("change", updateCustomPrice);
-
-$s("saleSaveBtn").onclick = async ()=>{
-  showSaleErr("");
-  const qty = Number($s("sQty").value), price = Number($s("sPrice").value), sold_at = $s("sDate").value;
-  if(!Number.isInteger(qty) || qty < 1) return showSaleErr("Liczba sztuk musi być liczbą całkowitą ≥ 1.");
-  if(!Number.isFinite(price) || price < 0) return showSaleErr("Podaj poprawną cenę za sztukę (zł).");
-  if(!sold_at) return showSaleErr("Podaj datę sprzedaży.");
-  let row;
-  if(saleMode==="offer"){
-    const p = products.find(x=>String(x.id)===$s("sProduct").value);
-    if(!p) return showSaleErr("Wybierz produkt z listy (dodaj ofertę w zakładce „Stałe oferty”).");
-    if(!$s("sSize").value) return showSaleErr("Ten produkt nie ma rozmiarów — dodaj je w edycji produktu.");
-    const v = variantsOf(p)[+$s("sColor").value];
-    row = { product_id:p.id, product_name:p.name, size:$s("sSize").value, color_name:v.name||v.color, color_hex:v.color, quantity:qty, unit_price:price, sold_at };
-  } else {
-    const colorOpt = $s("sCColor").selectedOptions[0];
-    if(!$s("sCColor").value || !$s("sCCut").value) return showSaleErr("Wybierz kolor i krój (dodaj je w zakładce Customy, jeśli lista jest pusta).");
-    const holes = Number($s("sCHoles").value);
-    if(!Number.isInteger(holes) || holes < 0 || holes > 50) return showSaleErr("Liczba dziur musi być liczbą całkowitą od 0 do 50.");
-    row = { kind:"custom", product_id:null, product_name:CUSTOM_LABEL, size:$s("sCSize").value, color_name:$s("sCColor").value,
-      color_hex: colorOpt?.dataset.hex || null, cut:$s("sCCut").value,
-      hole_count: holes, hole_price: holePriceOf(await fetchSettings()),
-      quantity:qty, unit_price:price, sold_at };
-  }
-  const ok = await addSale(row);
-  if(ok){
-    flash("saleMsg", `Zapisano: ${qty} × ${row.product_name} (${row.size}, ${row.color_name}) — ${fmtPLN(qty*price)}`, "ok");
-    $s("sQty").value = 1;
-    salePriceTouched = false;
-    if(saleMode==="custom"){ $s("sCHoles").value = 0; updateCustomPrice(); }
-    $s("sQty").focus();
-  }
-};
-async function addSale(row){
-  if(localDevMode){ row.id="s"+Date.now()+Math.random().toString(36).slice(2,5); sales=[row,...sales]; localStorage.setItem("localSales",JSON.stringify(sales)); renderSales(); return true; }
-  const { error } = await sb.from("sales").insert(row);
-  if(error){ showSaleErr("Błąd zapisu sprzedaży: "+error.message+(/column|kind|cut|hole/.test(error.message)?" — uruchom migrację 003 z README.":"")); return false; }
-  await loadSales(); return true;
-}
-async function deleteSale(id){
-  if(localDevMode){ sales=sales.filter(s=>s.id!==id); localStorage.setItem("localSales",JSON.stringify(sales)); renderSales(); return; }
-  const { error } = await sb.from("sales").delete().eq("id", id);
-  if(error) flash("saleMsg","Błąd: "+error.message,"err"); else loadSales();
-}
 
 // ---- Kampanie (planowane banery z harmonogramem) ----
 let campaigns = [];
@@ -658,7 +283,7 @@ async function applyAdminBrand(){
 async function saveSettingsPatch(patch){
   if(localDevMode){ const merged = {...localSettings(), ...patch}; saveLocalSettings(merged); return true; }
   const { error } = await sb.from("site_settings").update(patch).eq("id",1);
-  if(error){ flash("settingsMsg","Błąd zapisu: "+error.message+(/hole_price/.test(error.message)?" — uruchom migrację 003 z README.":""),"err"); return false; }
+  if(error){ flash(curSettingsMsg,"Błąd zapisu: "+error.message+(/hole_price|custom_base_price|order_|home_cards/.test(error.message)?" — uruchom najnowszą migrację SQL z README.":""),"err"); return false; }
   return true;
 }
 
@@ -681,42 +306,57 @@ function renderThemeCards(currentAccent){
     card.className = "theme-card"+(t.accent===currentAccent?" active":"");
     card.innerHTML = `<div class="theme-swatches"><span style="background:${t.bg}"></span><span style="background:${t.surface}"></span><span style="background:${t.accent}"></span></div><div class="tname">${t.name}</div>`;
     card.onclick = async ()=>{
-      const ok = await saveSettingsPatch({ theme_bg:t.bg, theme_surface:t.surface, theme_text:t.text, theme_accent:t.accent, theme_muted:t.muted, theme_border:t.border });
+  const ok = await saveSettingsPatch({ theme_bg:t.bg, theme_surface:t.surface, theme_text:t.text, theme_accent:t.accent, theme_muted:t.muted, theme_border:t.border });
       if(ok){ applyThemeLocally(t); renderThemeCards(t.accent); flash("settingsMsg","Zapisano motyw: "+t.name+" — widoczny na całej stronie.","ok"); }
     };
     box.appendChild(card);
   });
 }
+let settingsLoaded = false, curSettingsMsg = "settingsMsg";
 async function loadSettings(){
   const data = await fetchSettings();
-  if(!data){ flash("settingsMsg","Błąd pobierania ustawień","err"); return; }
+  if(!data){ flash(curSettingsMsg,"Błąd pobierania ustawień","err"); return; }
   document.getElementById("shopNameInput").value = data.shop_name || "";
   document.getElementById("sellerIgInput").value = data.seller_ig || "";
   document.getElementById("contactTextInput").value = data.contact_text || "";
   document.getElementById("policyMdInput").value = data.policy_md || "";
   document.getElementById("holePriceInput").value = holePriceOf(data);
+  document.getElementById("basePriceInput").value = Number(data.custom_base_price) || 0;
+  paintIgPreview();
   renderThemeCards(data.theme_accent);
+  settingsLoaded = true;
 }
-document.getElementById("saveSettingsBtn").onclick = async ()=>{
-  const ig = document.getElementById("sellerIgInput").value.trim();
-  const err = document.getElementById("sellerIgErr");
-  if(ig && !validIG(ig)){ err.style.display="block"; return; }
-  err.style.display="none";
-  const hp = document.getElementById("holePriceInput").value.trim();
-  const holePrice = Number(hp);
-  if(hp==="" || !Number.isFinite(holePrice) || holePrice < 0 || holePrice > 10000){
-    flash("settingsMsg","Cena dziury musi być liczbą od 0 do 10000 zł.","err"); document.getElementById("holePriceInput").focus(); return;
-  }
-  const ok = await saveSettingsPatch({
-    shop_name: document.getElementById("shopNameInput").value.trim() || DEFAULT_BRAND,
-    seller_ig: ig || "twoj_nick",
-    contact_text: document.getElementById("contactTextInput").value.trim(),
-    policy_md: document.getElementById("policyMdInput").value,
-    hole_price: holePrice,
-  });
-  if(ok) applyAdminBrand();
-  if(ok) flash("settingsMsg","Zapisano ustawienia. Cena dziury ("+fmtPLN(holePrice)+") obowiązuje teraz w całym sklepie.","ok");
-};
+function paintIgPreview(){
+  const nick = document.getElementById("sellerIgInput").value.trim().replace(/^@/,""), a = document.getElementById("igPreview");
+  a.textContent = nick ? "instagram.com/"+nick : "—"; a.href = nick ? "https://www.instagram.com/"+encodeURIComponent(nick)+"/" : "#";
+}
+document.getElementById("sellerIgInput").addEventListener("input", paintIgPreview);
+// każdy panel zapisuje tylko swoje pola (grupa: customy / ig / general)
+document.querySelectorAll(".js-save-settings").forEach(btn=>{
+  btn.onclick = async ()=>{
+    const msgId = btn.dataset.msg, group = btn.dataset.group; curSettingsMsg = msgId;
+    if(!settingsLoaded){ flash(msgId,"Ustawienia jeszcze się wczytują — spróbuj za chwilę.","err"); return; }
+    const g = id => document.getElementById(id);
+    let patch = {}, okMsg = "Zapisano ustawienia.";
+    if(group==="ig"){
+      const ig = g("sellerIgInput").value.trim(), err = g("sellerIgErr");
+      if(ig && !validIG(ig)){ err.style.display="block"; return; }
+      err.style.display = "none";
+      patch = { seller_ig: ig.replace(/^@/,"") || "twoj_nick" }; okMsg = "Zapisano profil Instagram — linki w koszyku i stopce są już zaktualizowane.";
+    } else if(group==="customy"){
+      const hp = g("holePriceInput").value.trim(), holePrice = Number(hp);
+      if(hp==="" || !Number.isFinite(holePrice) || holePrice < 0 || holePrice > 10000){ flash(msgId,"Cena dziury musi być liczbą od 0 do 10000 zł.","err"); g("holePriceInput").focus(); return; }
+      const bp = g("basePriceInput").value.trim(), basePrice = bp==="" ? 0 : Number(bp);
+      if(!Number.isFinite(basePrice) || basePrice < 0 || basePrice > 100000){ flash(msgId,"Cena bazowa musi być liczbą od 0 do 100000 zł.","err"); g("basePriceInput").focus(); return; }
+      patch = { hole_price: holePrice, custom_base_price: basePrice };
+      okMsg = `Zapisano ceny: dziura ${fmtPLN(holePrice)}, baza ${fmtPLN(basePrice)}.`;
+    } else {
+      patch = { shop_name: g("shopNameInput").value.trim() || DEFAULT_BRAND, contact_text: g("contactTextInput").value.trim(), policy_md: g("policyMdInput").value };
+    }
+    const ok = await saveSettingsPatch(patch);
+    if(ok){ applyAdminBrand(); flash(msgId, okMsg, "ok"); if(group==="customy") showHolePriceHint(); }
+  };
+});
 async function showHolePriceHint(){
   const data = await fetchSettings();
   document.getElementById("holePriceHint").textContent = "Cena jednej dziury: "+fmtPLN(holePriceOf(data))+" (zmienisz ją w Ustawieniach).";
@@ -731,7 +371,7 @@ async function loadDefaultBanner(){
 }
 document.getElementById("offerSwitch").onclick = (e)=> e.target.classList.toggle("on");
 document.getElementById("saveDefaultBannerBtn").onclick = async ()=>{
-  const ok = await saveSettingsPatch({
+    const ok = await saveSettingsPatch({
     offer_enabled: document.getElementById("offerSwitch").classList.contains("on"),
     offer_text: document.getElementById("offerTextInput").value.trim(),
   });
@@ -902,6 +542,12 @@ document.getElementById("addHoleStyleBtn").onclick = async ()=>{
   if(error) flash("customyMsg","Błąd: "+error.message,"err"); else { loadHoleStyles(); reset(); }
 };
 
+// automatyczne wylogowanie po 30 min bezczynności
+(function idleLogout(){
+  const LIMIT = 30*60*1000; let t;
+  const arm = ()=>{ clearTimeout(t); t = setTimeout(async ()=>{ if(document.getElementById("panel").style.display==="flex"){ localDevMode=false; if(SUPABASE_CONFIGURED) await sb.auth.signOut(); showLogin(); document.getElementById("loginErr").textContent = "Wylogowano z powodu bezczynności."; } }, LIMIT); };
+  ["click","keydown","pointerdown","scroll"].forEach(ev=>window.addEventListener(ev, arm, {passive:true})); arm();
+})();
 checkSession();
 
 // ---- Kontakt → Discord (tylko dla zalogowanego admina; webhook jest wyłącznie w Workerze) ----

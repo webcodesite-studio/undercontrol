@@ -151,3 +151,133 @@ create table sales (
 alter table sales enable row level security;
 create policy "Authenticated all sales" on sales for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- 10) Czapki (warianty kolorystyczne), kody rabatowe, oferta na stronie głównej.
+-- Strona NIE zapisuje zamówień ani danych klientów — płatność i potwierdzenie odbywają się przez Instagram.
+alter table site_settings add column if not exists custom_base_price numeric not null default 0 check (custom_base_price >= 0);
+
+create table hats (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text,
+  price numeric not null default 0 check (price >= 0), -- cena bazowa; wariant może mieć własną
+  -- [{"name":"Czarny","hex":"#1a1a1a","images":["https://..."],"active":true,"price":null,"description":null,
+  --   "sizes":[{"size":"M","stock":5},{"size":"L","stock":0}]}]
+  variants jsonb not null default '[]',
+  active boolean not null default true,
+  sort_order int default 0,
+  created_at timestamptz default now()
+);
+alter table hats enable row level security;
+create policy "Public read active hats" on hats for select using (active);
+create policy "Authenticated all hats" on hats for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+create table discount_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique check (code = upper(btrim(code)) and length(code) between 2 and 40),
+  type text not null check (type in ('percent','fixed')),
+  value numeric not null check (value > 0 and (type <> 'percent' or value <= 100)),
+  expires_at date,
+  min_order numeric not null default 0 check (min_order >= 0),
+  usage_limit int check (usage_limit is null or usage_limit > 0),
+  used_count int not null default 0,
+  active boolean not null default true,
+  created_at timestamptz default now()
+);
+alter table discount_codes enable row level security;
+create policy "Authenticated all discount_codes" on discount_codes for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+create or replace function public.calc_discount(p_code text, p_subtotal numeric, p_lock boolean default false)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare d discount_codes; v_code text := upper(btrim(coalesce(p_code,''))); v_amt numeric;
+begin
+  if v_code = '' then return jsonb_build_object('valid',false,'error','Wpisz kod rabatowy.'); end if;
+  if p_lock then select * into d from discount_codes where code = v_code for update;
+  else select * into d from discount_codes where code = v_code; end if;
+  if not found then return jsonb_build_object('valid',false,'error','Nieprawidłowy kod rabatowy.'); end if;
+  if not d.active then return jsonb_build_object('valid',false,'error','Ten kod jest nieaktywny.'); end if;
+  if d.expires_at is not null and d.expires_at < (now() at time zone 'Europe/Warsaw')::date then
+    return jsonb_build_object('valid',false,'error','Ten kod wygasł.'); end if;
+  if d.usage_limit is not null and d.used_count >= d.usage_limit then
+    return jsonb_build_object('valid',false,'error','Limit użyć tego kodu został wyczerpany.'); end if;
+  if p_subtotal < d.min_order then
+    return jsonb_build_object('valid',false,'error','Minimalna wartość zamówienia dla tego kodu to '||to_char(d.min_order,'FM999990.00')||' zł.'); end if;
+  v_amt := case when d.type = 'percent' then round(p_subtotal * d.value / 100, 2) else least(d.value, p_subtotal) end;
+  return jsonb_build_object('valid',true,'code',d.code,'type',d.type,'value',d.value,'discount',v_amt);
+end $$;
+
+-- sprawdzenie kodu (bez zmian w bazie)
+create or replace function public.validate_discount(p_code text, p_subtotal numeric)
+returns jsonb language sql security definer set search_path = public as $$
+  select public.calc_discount(p_code, p_subtotal, false);
+$$;
+-- zużycie jednego użycia kodu przy zatwierdzeniu podsumowania (zapisuje tylko licznik, żadnych danych klienta)
+create or replace function public.redeem_discount(p_code text, p_subtotal numeric)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare r jsonb;
+begin
+  r := public.calc_discount(p_code, p_subtotal, true);
+  if (r->>'valid')::boolean then update discount_codes set used_count = used_count + 1 where code = r->>'code'; end if;
+  return r;
+end $$;
+revoke all on function public.calc_discount(text,numeric,boolean) from public, anon, authenticated;
+grant execute on function public.validate_discount(text,numeric) to anon, authenticated;
+grant execute on function public.redeem_discount(text,numeric) to anon, authenticated;
+
+-- Ustawienia zamówień i strony głównej (publiczne flagi — NIE zawierają sekretów; adres Formspree / webhook są tylko w zmiennych środowiskowych serwera)
+alter table site_settings add column if not exists order_email_enabled boolean not null default true;
+alter table site_settings add column if not exists order_discord_enabled boolean not null default true;
+alter table site_settings add column if not exists home_cards jsonb; -- [{"key":"hats|pants|custom","title":"","description":"","image_url":"","button_label":""}]
+
+-- 11) Identyfikatory produktów (ID do podawania na Instagramie), tabele rozmiarów, zabezpieczenie kodów rabatowych
+alter table hats add column if not exists sku text;
+alter table products add column if not exists sku text;
+-- uzupełnij brakujące ID: H001, H002… / P001, P002…
+update hats h set sku = 'H' || lpad(n.rn::text, 3, '0') from (select id, row_number() over (order by created_at, id) rn from hats where sku is null) n where h.id = n.id and h.sku is null;
+update products p set sku = 'P' || lpad(n.rn::text, 3, '0') from (select id, row_number() over (order by created_at, id) rn from products where sku is null) n where p.id = n.id and p.sku is null;
+create unique index if not exists hats_sku_key on hats (upper(sku));
+create unique index if not exists products_sku_key on products (upper(sku));
+
+create table if not exists size_charts (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  columns jsonb not null default '[]',   -- ["Pas (cm)","Długość (cm)"]
+  rows jsonb not null default '[]',      -- [{"size":"S","values":["72","102"]}]
+  note text,
+  default_for text check (default_for in ('hats','pants','custom')), -- tabela domyślna dla całej kategorii
+  created_at timestamptz default now()
+);
+create unique index if not exists size_charts_default_key on size_charts (default_for) where default_for is not null;
+alter table size_charts enable row level security;
+drop policy if exists "Public read size_charts" on size_charts;
+create policy "Public read size_charts" on size_charts for select using (true);
+drop policy if exists "Authenticated write size_charts" on size_charts;
+create policy "Authenticated write size_charts" on size_charts for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+alter table hats add column if not exists size_chart_id uuid references size_charts(id) on delete set null;
+alter table products add column if not exists size_chart_id uuid references size_charts(id) on delete set null;
+
+-- Zużycie kodu rabatowego tylko przez funkcję serwerową zamówień (klucz service_role) — z przeglądarki nie da się ani zużyć, ani cofnąć użycia.
+create or replace function public.release_discount(p_code text)
+returns void language sql security definer set search_path = public as $$
+  update discount_codes set used_count = greatest(0, used_count - 1) where code = upper(btrim(p_code));
+$$;
+revoke all on function public.redeem_discount(text, numeric) from public, anon, authenticated;
+revoke all on function public.release_discount(text) from public, anon, authenticated;
+grant execute on function public.redeem_discount(text, numeric) to service_role;
+grant execute on function public.release_discount(text) to service_role;
+
+-- 12) Oznaczenie produktów testowych (zamówienia NIE są zapisywane w SQL — e-mail jest jedynym pełnym zapisem)
+alter table hats add column if not exists is_test boolean not null default false;
+alter table products add column if not exists is_test boolean not null default false;
+
+-- (starszy licznik numerów zamówień nie jest już używany — zamówienia nie są niczego zapisywane w SQL)
+drop function if exists public.next_order_number();
+drop table if exists order_counters;
+
+-- Sposób powiadamiania o zamówieniach: e-mail (Formspree) / Discord / oba (domyślnie oba — do testów). Publiczne flagi, bez sekretów.
+alter table site_settings alter column order_email_enabled set default true;
+alter table site_settings alter column order_discord_enabled set default true;
+update site_settings set order_email_enabled = true, order_discord_enabled = true where not order_email_enabled and not order_discord_enabled;
