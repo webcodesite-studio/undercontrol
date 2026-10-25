@@ -32,7 +32,9 @@ function localSettings(){ return JSON.parse(localStorage.getItem("localSiteSetti
 function saveLocalSettings(d){ localStorage.setItem("localSiteSettings", JSON.stringify(d)); }
 
 async function checkSession(){
-  const { data:{ session } } = await sb.auth.getSession();
+  if(!SUPABASE_CONFIGURED && !IS_LOCAL_HOST){ showLogin(); loginErr("Logowanie nie jest jeszcze skonfigurowane na tej stronie: w pliku config.js brakuje adresu i klucza Supabase. Uzupełnij je zgodnie z README."); return; }
+  let session = null;
+  try{ session = (await sb.auth.getSession()).data.session; }catch(e){}
   if(session){ showPanel(); } else { showLogin(); }
 }
 function showLogin(){ document.getElementById("loginBox").style.display="block"; document.getElementById("panel").style.display="none"; }
@@ -44,19 +46,37 @@ function showPanel(){
   applyAdminBrand();
 }
 
-document.getElementById("loginBtn").onclick = async ()=>{
-  const email = document.getElementById("loginEmail").value.trim();
-  const password = document.getElementById("loginPass").value;
-
-  if(!SUPABASE_CONFIGURED && IS_LOCAL_HOST && email === "admin" && password === "admin"){
-    localDevMode = true;
-    showPanel();
+var loginErr = t => { document.getElementById("loginErr").textContent = t; };
+// Logowanie: prawdziwe konto Supabase Auth (sesja w localStorage — przetrwa odświeżenie i nawigację po stronach panelu).
+// Błędy są rozróżniane: zły login/hasło ≠ brak konfiguracji ≠ brak połączenia (żeby nie wprowadzać w błąd).
+async function doLogin(){
+  const btn = document.getElementById("loginBtn");
+  const email = document.getElementById("loginEmail").value.trim().toLowerCase();   // spacje i wielkość liter w e-mailu nie mają znaczenia
+  const password = document.getElementById("loginPass").value;                       // hasła nie przycinamy
+  loginErr("");
+  if(!email || !password){ loginErr("Wpisz e-mail i hasło."); return; }
+  if(!SUPABASE_CONFIGURED){
+    // test lokalny bez Supabase: admin/admin TYLKO na localhost
+    if(IS_LOCAL_HOST && email === "admin" && password === "admin"){ localDevMode = true; showPanel(); return; }
+    loginErr(IS_LOCAL_HOST
+      ? "Błędny mail lub hasło."
+      : "Logowanie nie jest jeszcze skonfigurowane na tej stronie: w pliku config.js brakuje adresu i klucza Supabase (SUPABASE_URL, SUPABASE_ANON_KEY). To nie jest błąd hasła — patrz README, krok 1–2.");
     return;
   }
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  if(error){ document.getElementById("loginErr").textContent = "Błędny mail lub hasło"; return; }
-  showPanel();
-};
+  btn.disabled = true; btn.textContent = "Logowanie…";
+  try{
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if(error){
+      const bad = error.status === 400 || error.status === 401 || /invalid login|invalid credentials/i.test(error.message||"");
+      loginErr(bad ? "Błędny mail lub hasło." : "Nie udało się połączyć z serwerem logowania. Sprawdź połączenie i konfigurację Supabase w config.js.");
+      return;
+    }
+    showPanel();
+  }catch(e){ loginErr("Nie udało się połączyć z serwerem logowania. Sprawdź połączenie i konfigurację Supabase w config.js."); }
+  finally{ btn.disabled = false; btn.textContent = "Zaloguj"; }
+}
+document.getElementById("loginBtn").onclick = doLogin;
+["loginEmail","loginPass"].forEach(id=>document.getElementById(id).addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); doLogin(); } }));
 document.getElementById("logoutBtn").onclick = async ()=>{
   localDevMode = false;
   if(SUPABASE_CONFIGURED) await sb.auth.signOut();
