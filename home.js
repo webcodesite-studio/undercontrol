@@ -1,20 +1,14 @@
-// Strona główna: baner kampanii / oferty i blok kontaktu
+// Strona główna: blok kontaktu (baner jest globalny — nav.js)
 const HOME_FALLBACK_CONTACT = "Napisz do nas na Instagramie.";
 (async function(){
   const block = document.getElementById("contactBlock");
-  let banner = null, contact = HOME_FALLBACK_CONTACT;
+  let contact = HOME_FALLBACK_CONTACT;
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const today = new Date().toISOString().slice(0,10);
-    const { data: camps } = await sb.from("campaigns").select("*");
-    const active = (camps||[]).find(c => c.start_date <= today && today <= c.end_date);
-    const { data } = await sb.from("site_settings").select("offer_enabled,offer_text,contact_text").eq("id",1).single();
-    if(active) banner = active.banner_text;
-    else if(data?.offer_enabled && data.offer_text) banner = data.offer_text;
+    const { data } = await sb.from("site_settings").select("contact_text").eq("id",1).single();
     if(data?.contact_text) contact = data.contact_text;
   }catch(e){ /* Supabase niedostępny / nieskonfigurowany — zostają wartości domyślne */ }
   block.textContent = contact;
-  if(banner){ document.getElementById("offerText").textContent = banner; document.getElementById("offerBar").style.display = "flex"; }
 })();
 
 // Trzy karty: Czapki / Spodnie / Customowe spodnie (teksty i zdjęcia zarządzane w panelu: „Strona główna i nawigacja”)

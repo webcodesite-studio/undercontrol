@@ -70,20 +70,12 @@ async function loadSettings(){
   HOLE_PRICE = holePriceOf(SETTINGS);
   BASE_PRICE = Math.max(0, Number(SETTINGS.custom_base_price) || 0);
 
-  const bar = document.getElementById("offerBar");
-  if(SETTINGS.offer_enabled && SETTINGS.offer_text){
-    document.getElementById("offerText").textContent = SETTINGS.offer_text;
-    bar.style.display = "flex";
-  } else {
-    bar.style.display = "none";
-  }
   document.getElementById("contactBlock").textContent = SETTINGS.contact_text || "";
   if(SETTINGS.customy_base_image){
     const img = document.getElementById("holeBaseImg");
     img.src = SETTINGS.customy_base_image; img.style.display = "block";
   }
 }
-document.getElementById("offerClose").onclick = ()=> document.getElementById("offerBar").style.display="none";
 
 function el(tag, cls, html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!==undefined) e.innerHTML=html; return e; }
 

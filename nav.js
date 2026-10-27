@@ -44,10 +44,30 @@ function buildFooter(shopName, sellerIg){
   document.body.appendChild(f);
 }
 
+// Globalny baner (jedno miejsce: pod nagłówkiem, na każdej stronie). Treść i włączenie: panel → ustawienia (offer_enabled / offer_text) lub aktywna kampania.
+const DEFAULT_OFFER = "Wysyłka gratis przy zamówieniu do niedzieli!";
+function renderOfferBanner(text){
+  document.getElementById("offerBar")?.remove();
+  const head = document.querySelector(".nav-container");
+  if(!text || !head) return;
+  let closed = false; try{ closed = sessionStorage.getItem("offerClosed") === text; }catch(e){}
+  if(closed) return;
+  const bar = document.createElement("div"); bar.className = "offer-bar"; bar.id = "offerBar"; bar.setAttribute("role","status");
+  bar.innerHTML = `<span id="offerText">${escHtml(text)}</span><button type="button" id="offerClose" aria-label="Zamknij baner">✕</button>`;
+  bar.querySelector("#offerClose").onclick = ()=>{ bar.remove(); try{ sessionStorage.setItem("offerClosed", text); }catch(e){} };
+  head.after(bar);
+}
+
 window.SELLER_IG = typeof IG_NICK !== "undefined" ? IG_NICK : "twoj_nick";
 
 (async function loadSiteSettings(){
-  let settings = null;
+  let settings = null, campaign = null;
+  try{
+    const today = new Date().toISOString().slice(0,10);
+    const sb0 = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: camps } = await sb0.from("campaigns").select("*");
+    campaign = (camps||[]).find(c => c.start_date <= today && today <= c.end_date) || null;
+  }catch(e){}
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await sb.from("site_settings").select("*").eq("id",1).single();
@@ -59,6 +79,7 @@ window.SELLER_IG = typeof IG_NICK !== "undefined" ? IG_NICK : "twoj_nick";
   applyBrand(shopName);
   if(settings?.seller_ig) window.SELLER_IG = settings.seller_ig;
   if(settings) applyTheme(settings);
+  renderOfferBanner(campaign?.banner_text || (settings ? (settings.offer_enabled && settings.offer_text ? settings.offer_text : "") : DEFAULT_OFFER));
   buildFooter(shopName, window.SELLER_IG);
   document.dispatchEvent(new CustomEvent("siteSettingsReady", { detail: settings }));
 })();
