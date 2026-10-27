@@ -142,7 +142,7 @@
 
 <div id="loginBox" class="login-box">
   <h2>Logowanie</h2>
-  <input type="email" id="loginEmail" placeholder="Mail">
+  <input type="text" inputmode="email" autocapitalize="none" autocomplete="username" id="loginEmail" placeholder="E-mail (test: admin)">
   <input type="text" id="loginPass" placeholder="Hasło" style="-webkit-text-security:disc;">
   <button class="btn btn-primary" style="width:100%" id="loginBtn">Zaloguj</button>
   <p id="loginErr" style="color:#ff6b6b;font-size:13px;"></p>
@@ -185,7 +185,7 @@
       <h1 id="pageTitle">Pulpit</h1>
     </div>
     <div id="devBadge" style="display:none;background:#4a3a00;color:#ffd166;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:16px;">
-      Tryb testowy (bez Supabase) — zmiany zapisują się tylko w tej przeglądarce.
+      NIE JEST BEZPIECZNE — tymczasowy tryb testowy (admin/admin, bez Supabase). Zmiany zapisują się tylko w tej przeglądarce. Przed produkcją skonfiguruj Supabase w config.js.
     </div>
 
   <div id="dashboardPanel">

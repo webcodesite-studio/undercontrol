@@ -6,9 +6,11 @@ let rows = [];
 // Gdy wpiszesz prawdziwe dane Supabase, ten tryb sam się wyłącza — logowanie admin/admin
 // przestanie działać i panel będzie wymagał prawdziwego konta.
 const SUPABASE_CONFIGURED = !SUPABASE_URL.includes("TWOJ-PROJEKT");
-// Tryb testowy admin/admin: WYŁĄCZNIE lokalnie (localhost / plik) i tylko gdy config.js ma placeholder Supabase.
-// Na opublikowanej domenie logowanie wymaga prawdziwego konta Supabase.
-const IS_LOCAL_HOST = ["localhost","127.0.0.1","[::1]",""].includes(location.hostname);
+// TYMCZASOWE dane testowe admin/admin — działają WYŁĄCZNIE lokalnie i na GitHub Pages (*.github.io) i tylko gdy config.js ma
+// placeholder Supabase. To logowanie jest po stronie przeglądarki (NIE jest zabezpieczeniem) i nie daje dostępu do żadnych danych na serwerze.
+// Przed produkcją: wpisz prawdziwe dane Supabase w config.js (tryb testowy wyłączy się sam) albo zmień stałe poniżej.
+const DEV_LOGIN = { email:"admin", password:"admin" };
+const IS_LOCAL_HOST = ["localhost","127.0.0.1","[::1]",""].includes(location.hostname) || /\.github\.io$/.test(location.hostname);
 let localDevMode = false;
 const LOCAL_FALLBACK_OPTIONS = [
   {id:"l1",category:"kolor",name:"Czarny",hex:"#1a1a1a",price_extra:0,available:true,sort_order:1},
@@ -57,7 +59,7 @@ async function doLogin(){
   if(!email || !password){ loginErr("Wpisz e-mail i hasło."); return; }
   if(!SUPABASE_CONFIGURED){
     // test lokalny bez Supabase: admin/admin TYLKO na localhost
-    if(IS_LOCAL_HOST && email === "admin" && password === "admin"){ localDevMode = true; showPanel(); return; }
+    if(IS_LOCAL_HOST && email === DEV_LOGIN.email && password === DEV_LOGIN.password){ localDevMode = true; showPanel(); return; }
     loginErr(IS_LOCAL_HOST
       ? "Błędny mail lub hasło."
       : "Logowanie nie jest jeszcze skonfigurowane na tej stronie: w pliku config.js brakuje adresu i klucza Supabase (SUPABASE_URL, SUPABASE_ANON_KEY). To nie jest błąd hasła — patrz README, krok 1–2.");

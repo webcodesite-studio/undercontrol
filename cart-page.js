@@ -179,6 +179,7 @@ async function placeOrder(){
   const btn = document.getElementById("sendBtn"), label = btn.textContent;
   busy = true; btn.disabled = true; btn.textContent = "Wysyłanie zamówienia…";
   const fail = msg => { err.hidden = false; err.textContent = msg; btn.disabled = false; btn.textContent = label; busy = false; err.scrollIntoView({block:"center", behavior:"smooth"}); };
+  if(!ORDER_API_URL) return fail("Automatyczne składanie zamówień nie jest tu jeszcze skonfigurowane (hosting statyczny — wymaga zewnętrznej funkcji serverless, patrz DEPLOY.md). Koszyk został zachowany — napisz do nas na Instagramie.");
   const items = Cart.items().map(i=>({...i})), sub = Cart.subtotal();
   try{
     let d = 0;

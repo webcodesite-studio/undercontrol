@@ -169,7 +169,7 @@ const Store = (function(){
   // Nie zawiera adresów, tokenów ani webhooków. Gdy odczyt się nie uda — status nieznany (ready = null); przycisk i tak próbuje wysłać zamówienie.
   async function orderStatus(){
     const unknown = { mode:"both", test_mode:false, ready:null };
-    if(typeof ORDER_API_URL === "undefined") return unknown;
+    if(typeof ORDER_API_URL === "undefined" || !ORDER_API_URL) return unknown;
     try{
       const r = await fetch(ORDER_API_URL, { headers:{ Accept:"application/json" }, cache:"no-store" });
       const j = await r.json();

@@ -14,5 +14,7 @@ const R2_UPLOAD_URL = "https://TWOJ-WORKER.workers.dev";
 // zamówienie przez Formspree (e-mail) i/lub na Discord. Adresy Formspree/Discord i inne sekrety są WYŁĄCZNIE zmiennymi środowiskowymi po stronie
 // serwera (patrz DEPLOY.md) — nie ma ich w tym pliku. Ścieżki względne działają, gdy strona i funkcje są na tej samej domenie Vercel;
 // przy hostingu strony gdzie indziej wpisz pełny adres https://twoja-domena.vercel.app/api/submit-order.
-const ORDER_API_URL = "/api/submit-order";
-const ORDER_ADMIN_URL = "/api/order-admin";   // panel: status integracji, wiadomość testowa, dekoder Base64
+// Na GitHub Pages (statyczny hosting) nie ma funkcji serverless — wtedy zostaje puste (koszyk kieruje na Instagram), dopóki nie wpiszesz pełnego adresu zewnętrznego.
+const ON_GH_PAGES = /\.github\.io$/.test(location.hostname);
+const ORDER_API_URL = ON_GH_PAGES ? "" : "/api/submit-order";
+const ORDER_ADMIN_URL = ON_GH_PAGES ? "" : "/api/order-admin";   // panel: status integracji, wiadomość testowa, dekoder Base64

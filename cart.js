@@ -93,6 +93,7 @@ const NAV_LINKS = [
   ["index.html","Strona główna"], ["czapki.html","Czapki"], ["spodnie.html","Spodnie"], ["customy.html","Customowe spodnie"],
   ["polityka.html","Polityka prywatności"], ["kontakt.html","Kontakt"],
 ];
+const ADMIN_LINK = ["admin.html","Logowanie admina"];
 // strona szczegółów produktu podświetla swoją sekcję
 const NAV_SECTION = { "czapka.html":"czapki.html", "spodnie-produkt.html":"spodnie.html" };
 (function navCart(){
@@ -100,9 +101,20 @@ const NAV_SECTION = { "czapka.html":"czapki.html", "spodnie-produkt.html":"spodn
   const file = location.pathname.split("/").pop() || "index.html";
   const active = NAV_SECTION[file] || file;
   list.innerHTML = NAV_LINKS.map(([h,t])=>`<li><a href="${h}"${h===active?' class="active" aria-current="page"':""}>${t}</a></li>`).join("") +
-    `<li><a href="koszyk.html" class="cart-link${file==="koszyk.html"?" active":""}" aria-label="Koszyk">Koszyk <span class="cart-badge" id="cartBadge" hidden>0</span></a></li>`;
+    `<li><a href="koszyk.html" class="cart-link${file==="koszyk.html"?" active":""}" aria-label="Koszyk">Koszyk <span class="cart-badge" id="cartBadge" hidden>0</span></a></li>` +
+    `<li><a href="${ADMIN_LINK[0]}" class="admin-link">${ADMIN_LINK[1]}</a></li>`;
   const upd = ()=>{ const b = document.getElementById("cartBadge"); const n = Cart.count(); b.textContent = n; b.hidden = !n; };
   document.addEventListener("cartchange", upd); upd();
+  // przełącznik Czapki / Spodnie / Customowe — na stronach oferty, bez cofania w przeglądarce
+  const SHOP = { "czapki.html":"czapki.html","czapka.html":"czapki.html","spodnie.html":"spodnie.html","spodnie-produkt.html":"spodnie.html","customy.html":"customy.html" };
+  const cur = SHOP[file]; const bar = document.querySelector(".nav-container");
+  if(cur && bar){
+    const tabs = [["czapki.html","Czapki"],["spodnie.html","Gotowe spodnie"],["customy.html","Customowe spodnie"]];
+    const sw = document.createElement("nav"); sw.className = "shop-switch"; sw.setAttribute("aria-label","Oferta");
+    sw.innerHTML = tabs.map(([h,t])=>`<a href="${h}"${h===cur?' class="active" aria-current="page"':""}>${t}</a>`).join("") +
+      (cur==="customy.html" ? `<a class="back-pants" href="spodnie.html">← Wróć do gotowych spodni</a>` : "");
+    bar.after(sw);
+  }
 })();
 
 // ---- wspólne helpery widoku koszyka / zamówienia ----

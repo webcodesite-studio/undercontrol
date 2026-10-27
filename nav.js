@@ -1,6 +1,17 @@
-document.getElementById("mobile-menu")?.addEventListener("click", ()=>{
-  document.getElementById("nav-list").classList.toggle("open");
-});
+(function mobileMenu(){
+  const btn = document.getElementById("mobile-menu"), list = document.getElementById("nav-list");
+  if(!btn || !list) return;
+  btn.setAttribute("aria-controls","nav-list"); btn.setAttribute("aria-expanded","false");
+  const set = open => {
+    list.classList.toggle("open", open); btn.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", String(open)); btn.setAttribute("aria-label", open ? "Zamknij menu" : "Otwórz menu");
+  };
+  btn.addEventListener("click", e=>{ e.stopPropagation(); set(!list.classList.contains("open")); });
+  list.addEventListener("click", e=>{ if(e.target.closest("a")) set(false); });
+  document.addEventListener("click", e=>{ if(!list.contains(e.target)) set(false); });
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape") set(false); });
+  window.addEventListener("resize", ()=>{ if(innerWidth > 700) set(false); });
+})();
 
 function applyTheme(s){
   const root = document.documentElement.style;
