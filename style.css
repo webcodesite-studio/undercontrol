@@ -27,16 +27,16 @@ a{color:var(--accent);}
 .menu-toggle.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
 .menu-toggle.open span:nth-child(2){opacity:0;}
 .menu-toggle.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
-.nav-links .admin-link{color:var(--accent);}
 .shop-switch{display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:1100px;margin:0 auto;padding:10px 16px;}
-.shop-switch a{color:var(--muted);text-decoration:none;font-size:14px;padding:8px 14px;border:1px solid var(--border);border-radius:999px;}
+.shop-switch a{color:var(--muted);text-decoration:none;font-size:14px;padding:10px 14px;min-height:40px;box-sizing:border-box;border:1px solid var(--border);border-radius:999px;}
 .shop-switch a.active{color:#141400;background:var(--accent);border-color:var(--accent);}
 .shop-switch a.back-pants{flex:1 1 100%;text-align:center;color:var(--text);border-color:var(--accent);font-weight:600;}
+@media(max-width:700px){ .shop-switch{flex-wrap:wrap;} .shop-switch a:not(.back-pants){flex:1 1 0;text-align:center;padding:10px 6px;font-size:13px;white-space:nowrap;} }
 @media(min-width:701px){ .shop-switch a.back-pants{flex:0 0 auto;margin-left:auto;} }
 @media(max-width:700px){
   .menu-toggle{display:flex;min-width:44px;min-height:44px;align-items:center;justify-content:center;}
   .nav-container{flex-wrap:wrap;}
-  nav{position:absolute;top:100%;left:0;right:0;}
+  .nav-container > nav{position:absolute;top:100%;left:0;right:0;}
   .nav-links{flex-direction:column;background:var(--surface);gap:0;padding:0 16px;
     border-bottom:1px solid var(--border);box-shadow:0 12px 24px rgba(0,0,0,.4);
     max-height:0;overflow:hidden;visibility:hidden;opacity:0;
@@ -63,7 +63,8 @@ a{color:var(--accent);}
 .shop-wrap{max-width:1100px;margin:0 auto;padding:16px 20px 24px;}
 .shop-cat{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:28px 0 12px;}
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
-.product-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s ease;}
+.product-card,.product-card:hover{color:var(--text);text-decoration:none;}
+.product-card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s ease;}
 .product-card:not(.unavailable):hover{border-color:var(--accent);}
 .product-thumb{aspect-ratio:3/4;position:relative;}
 .product-thumb svg{width:100%;height:100%;}
